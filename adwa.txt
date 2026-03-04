@@ -1,5 +1,0 @@
-Okei mietitään tuo matkanvarrella sitten tarkemmin. Lähinnä nyt tuo projektin alustus vaihe.
-
-Eli loin tuon copilot ohjeen, sekä Project context homman ja laitoin sen kommentin sinne permissions.ts tiedostoon.
-
-Sekä generoin sen README tiedoston projektinsuunnitelmasta.
