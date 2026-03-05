@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  STAFF
+}
+
+enum TicketStatus {
+  OPEN
+  CLOSED
+}
+
+enum AuditAction {
+  AUTH_LOGIN_FAILED
+  TICKET_CREATED
+  TICKET_REPLY_POSTED
+  TICKET_STATUS_CHANGED
+  FORBIDDEN_ACTION_ATTEMPT
+  RATE_LIMIT_TRIGGERED
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  passwordHash  String
+  role          Role            @default(CUSTOMER)
+  createdAt     DateTime        @default(now())
+
+  tickets        Ticket[]        @relation("CreatedByUser")
+  closedTickets  Ticket[]        @relation("ClosedByUser")
+  messages       TicketMessage[]
+  auditEvents    AuditEvent[]
+}
+
+model Ticket {
+  id              String        @id @default(cuid())
+  title           String
+  status          TicketStatus  @default(OPEN)
+
+  createdByUserId String
+  createdBy       User          @relation("CreatedByUser", fields: [createdByUserId], references: [id])
+
+  closedAt        DateTime?
+  closedByUserId  String?
+  closedBy        User?         @relation("ClosedByUser", fields: [closedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages TicketMessage[]
+}
+
+model TicketMessage {
+  id           String   @id @default(cuid())
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id])
+  authorUserId String
+  author       User     @relation(fields: [authorUserId], references: [id])
+  content      String
+  createdAt    DateTime @default(now())
+}
+
+model AuditEvent {
+  id          String      @id @default(cuid())
+  actorUserId String?
+  actor       User?       @relation(fields: [actorUserId], references: [id])
+  action      AuditAction
+  targetType  String?
+  targetId    String?
+  meta        Json?
+  createdAt   DateTime    @default(now())
+}
