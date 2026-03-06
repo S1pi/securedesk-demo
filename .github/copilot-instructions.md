@@ -2,13 +2,15 @@
 
 These instructions guide AI coding assistants when generating code for this repository.
 
+Remember If you are unsure about something, say so instead of guessing. Always ask for clarification if needed.
+
 PROJECT: SecureDesk (Support Ticket System with Layered Security)
 
 Goal:
 Build a small but complete support ticket web app where the main focus is demonstrating layered web security:
 
 - request-level protections (rate limiting, input validation)
-- authentication (NextAuth)
+- authentication (NextAuth/Auth.js)
 - authorization (RBAC)
 - data access enforcement (users can only access their own tickets)
 - safe error handling
@@ -42,7 +44,7 @@ Tech stack (preferred):
 
 - Next.js (App Router) + TypeScript
 - shadcn/ui for UI components
-- NextAuth for authentication (sessions)
+- NextAuth (Auth.js) for authentication (sessions)
 - Prisma ORM
 - Database: PostgreSQL (local via Docker Compose)
 - ORM: Prisma ORM (v6)
@@ -63,7 +65,7 @@ Security layers to implement:
 
 1. Authentication:
 
-- NextAuth session must include userId and role (CUSTOMER/STAFF).
+- NextAuth (Auth.js) session must include userId and role (CUSTOMER/STAFF).
 - Always check session in protected endpoints.
 
 2. Authorization (RBAC):
@@ -120,7 +122,7 @@ Database models (high-level):
 Implementation order guidance:
 
 1. Setup project + shadcn + Prisma + DB
-2. Implement NextAuth with role in session
+2. Implement NextAuth (Auth.js) with role in session
 3. Create Prisma models + migrations
 4. Build permission module (canReadTicket, canReplyTicket, canChangeStatus, canReadAudit)
 5. Build ticket service functions + audit service
@@ -145,6 +147,167 @@ Coding style:
 - No “magic strings” scattered: use enums/constants for actions/status/roles.
 <!-- - Centralize permissions logic in a single module. -->
 - Use shadcn/ui components for consistent styling.
+
+## API vs Server Actions
+
+This project prefers **Server Actions** for internal application mutations.
+
+Use Server Actions for operations triggered directly by the UI, such as:
+
+- user registration
+- ticket creation
+- posting ticket messages
+- changing ticket status
+
+Server Actions should call the **service layer**, which contains the business logic, permission checks, audit logging and database access.
+
+Do NOT place business logic directly in Server Actions.
+
+---
+
+### When to use Route Handlers
+
+Route Handlers should only be used when a real HTTP API endpoint is required.
+
+Examples include:
+
+- authentication routes required by Auth.js / NextAuth
+- endpoints intended for programmatic access
+- integrations with external systems
+- features that must expose a REST-style API
+
+If a feature is only used internally by the Next.js application UI, prefer Server Actions instead of creating an API route.
+
+---
+
+### Decision rule
+
+When implementing a new feature:
+
+1. Check if the functionality is only used by the internal UI.
+2. If yes → implement it using a **Server Action**.
+3. If an external HTTP endpoint is required → use a **Route Handler**.
+
+If uncertain, prefer Server Actions and explain the reasoning.
+
+## Development Workflow
+
+This project follows a structured development process defined in documentation files inside the `docs/` directory.
+
+The AI should use these files to understand the development order, the current state, and the project history.
+
+---
+
+### docs/development-plan.md
+
+Defines the **intended implementation order** of the project.
+
+Typical phase order:
+
+setup → core logic → security layers → UI → testing
+
+When suggesting implementation steps:
+
+- Prefer following the phase order defined in `docs/development-plan.md`
+- Especially respect the order during early development (setup and core logic)
+- Avoid jumping to later phases if earlier phases are incomplete
+
+---
+
+### docs/progress.md
+
+Represents the **current development state** of the project.
+
+Before suggesting implementation steps:
+
+- Check `docs/progress.md`
+- Determine the active phase
+- Prefer continuing from **In Progress**
+- If "In Progress" is empty, use **Next Steps**
+
+Ensure suggestions remain aligned with the development order defined in `docs/development-plan.md`.
+
+---
+
+### docs/dev-log.md
+
+Contains a **historical log of development milestones**.
+
+Purpose:
+
+- Record important completed features
+- Provide historical reference for past work
+- Help understand how the project evolved
+
+Do not rely on this file to determine the current state.  
+Use `docs/progress.md` for the current status.
+
+---
+
+## Progress Tracking Rules (AI Instructions)
+
+Project status is tracked in:
+
+`docs/progress.md`
+
+Rules:
+
+- **Do NOT update automatically**
+- Update ONLY when explicitly asked:
+
+`Update docs/progress.md`
+
+When updating:
+
+- Keep the file short and structured
+- Maximum **10 bullet points total**
+- No long explanations
+- Only mark items as **Completed** if the code is implemented and working (not just drafted)
+- Prefer referencing concrete artifacts (files, routes, Prisma models, etc.)
+
+Use the following template:
+
+# SecureDesk Development Progress
+
+## Current Phase
+
+<Phase name>
+
+## Completed
+
+- ...
+
+## In Progress
+
+- ...
+
+## Next Steps
+
+- ...
+
+---
+
+## Development Log Rules
+
+Project history is recorded in:
+
+`docs/dev-log.md`
+
+Rules:
+
+- Do NOT update automatically
+- Update ONLY when explicitly asked:
+
+`Update docs/dev-log.md`
+
+When updating:
+
+- Add a new section with the current date
+- Maximum **5 bullet points**
+- Focus only on meaningful milestones
+- Avoid long explanations
+
+---
 
 Follow these instructions carefully when generating code related to Prisma and Next.js. The setup is very specific and requires adherence to the exact patterns outlined here to work correctly. Do NOT deviate from these patterns or use deprecated approaches, as it will break the application. Always verify your generated code against the requirements in this guide before responding.
 
