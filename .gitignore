@@ -57,4 +57,8 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 
-/lib/generated/prisma
+# Generated Prisma client
+/app/generated/prisma
+
+# Unwanted docs
+/docs/ai-developer-playbook-v2.md

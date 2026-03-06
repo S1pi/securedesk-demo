@@ -11,6 +11,7 @@ datasource db {
 // Enums
 // ---------------------------------------------------------------------------
 
+// More roles can be added later if needed (e.g. ADMIN)
 enum Role {
   CUSTOMER
   STAFF
@@ -21,6 +22,8 @@ enum TicketStatus {
   CLOSED
 }
 
+
+// This enum can be extended with more actions as needed
 enum AuditAction {
   AUTH_LOGIN_FAILED
   TICKET_CREATED
