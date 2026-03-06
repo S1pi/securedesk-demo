@@ -4,7 +4,7 @@ SecureDesk is a small support ticket system focused on demonstrating layered web
 
 Main concepts:
 
-- authentication using NextAuth
+- authentication using NextAuth (Auth.js)
 - RBAC authorization
 - ownership enforcement for tickets
 - Zod validation

@@ -14,9 +14,9 @@ Sovellus toteutetaan modernilla TypeScript-pohjaisella web-teknologiapinolla.
 
 - **Frontend & Framework:** Next.js (App Router), TypeScript.
 - **UI-kirjasto:** shadcn/ui & Tailwind CSS.
-- **Backend & API:** Next.js Route Handlers / Server Actions.
+- **Backend & API:** Next.js Server Actions (ensisijaisesti) sekä Route Handlers vain silloin kun tarvitaan erillinen HTTP-rajapinta (esim. Auth.js).
 - **Tietokanta & ORM:** PostgreSQL (paikallisesti Docker Compose -ympäristössä) + Prisma ORM (v6).
-- **Autentikaatio:** NextAuth.js (Auth.js).
+- **Autentikaatio:** NextAuth (Auth.js).
 - **Validointi:** Zod.
 - **Testaus:** Vitest – yksikkö- ja integraatiotestit turvamekanismien varmistamiseksi.
 - **Paikallinen kehitysympäristö** Docker Compose PostgreSQL-tietokannalle
@@ -61,21 +61,22 @@ Sovelluksen domain-logiikka pidetään tarkoituksella yksinkertaisena, jotta pro
 
 Sovelluksessa toteutetaan useita tietoturvakerroksia:
 
-1.  **Autentikaatio:** Käyttäjän tunnistautuminen toteutetaan NextAuth.js:n avulla.
+1.  **Autentikaatio:** Käyttäjän tunnistautuminen toteutetaan NextAuth (Auth.js):n avulla.
     Kaikki suojatut rajapinnat tarkistavat istunnon ennen toiminnon suorittamista.
 2.  **Autorisointi (RBAC):** Sovelluksessa käytetään roolipohjaista pääsynhallintaa. Customer: pääsee käsiksi vain omiin tukipyyntöihin, Staff: pääsee käsiksi kaikkiin tukipyyntöihin
 3.  **Datan omistajuus:** Palvelin varmistaa, että asiakas voi hakea vain omia tukipyyntöjään. Tämä toteutetaan tarkistamalla tietokantakyselyissä createdByUserId ja estämällä muiden käyttäjien datan lukeminen. Tämän tarkoituksena on estää IDOR-haavoittuvuudet (Insecure Direct Object Reference).
-4.  **Syötteiden validointi:** Kaikki API-pyynnöt validoidaan Zod-skeemoilla ennen käsittelyä.
-5.  **Rate Limiting:** Rajapintojen suojaus liiallisilta pyynnöiltä (brute-force ja DoS esto).
+4.  **Syötteiden validointi:** Kaikki palvelimelle saapuvat syötteet validoidaan Zod-skeemoilla ennen käsittelyä (Server Actions / mahdolliset API-endpointit). Tämä estää haitallisten syötteiden aiheuttamat ongelmat, kuten SQL-injektiot tai XSS-hyökkäykset.
+5.  **Rate Limiting:** Palvelintason suojaus liiallisilta pyynnöiltä (esim. rekisteröinti, kirjautuminen, viestien lähetys) brute-force- ja DoS-yritysten rajoittamiseksi.
 6.  **Audit Logging:** Turvallisuuskriittisten tapahtumien (esim. `AUTH_LOGIN_FAILED`, `TICKET_STATUS_CHANGED`, `TICKET_REPLY_POSTED`, `FORBIDDEN_ACTION_ATTEMPT`, ) kirjaaminen erilliseen tauluun. Audit-loki mahdollistaa järjestelmän tapahtumien jäljitettävyyden.
-7.  **Turvallinen virheenkäsittely:** API palauttaa standardoituja virhekoodeja (401, 403, 404, 429) vuotamatta järjestelmän sisäisiä tietoja.
+7.  **Turvallinen virheenkäsittely:** Sovellus palauttaa standardoituja virhetilanteita (401, 403, 404, 429) vuotamatta järjestelmän sisäisiä tietoja.
 
 ## 5. Arkkitehtuurin yleiskuva
 
 Arkkitehtuuri noudattaa kerrosmalleja selkeyden ja testattavuuden varmistamiseksi:
 
 1.  **UI Layer (Client):** React-komponentit, jotka vastaavat käyttöliittymästä.. Ei sisällä liiketoimintalogiikkaa.
-2.  **API Layer (Route Handlers):** Vastaanottaa pyynnöt, suorittaa validoinnin (Zod), autentikaatio ja Rate Limit -tarkistuksen.
+2.  **Mutation Layer (Server Actions):** Vastaanottaa käyttöliittymästä tulevat mutaatiot (esim. ticketin luonti, viestin lähetys), suorittaa syötteiden validoinnin (Zod), autentikaation tarkistuksen sekä mahdollisen Rate Limiting -tarkistuksen ennen service-kerroksen kutsumista.
+    Route Handlers -endpointeja käytetään vain tilanteissa, joissa tarvitaan erillinen HTTP-rajapinta (esim. Auth.js autentikaatioreitti).
 3.  **Service Layer (Business Logic):**
     - Tarkistaa käyttöoikeudet (Permissions).
     - Suorittaa varsinaiset toiminnot (esim. `createTicket`).
