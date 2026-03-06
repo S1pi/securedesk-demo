@@ -142,6 +142,9 @@ Testing expectations (must-have):
 Coding style:
 
 - Prefer explicit TypeScript types, avoid any.
+- Prefer types over interfaces when ever possible.
+- Use interfaces only in specific cases (e.g. for declaration merging or when extending a type).
+- Use async/await with try-catch for all async operations.
 - Keep functions small and named by intent.
 - Prefer readable, consistent naming: ticketId, userId, createdByUserId.
 - No “magic strings” scattered: use enums/constants for actions/status/roles.
