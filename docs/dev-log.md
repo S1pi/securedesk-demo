@@ -14,3 +14,11 @@
 - Mounted NextAuth HTTP handler at `app/api/auth/[...nextauth]/route.ts`
 - Installed `bcryptjs` + type definitions
 - Decided on registration strategy: own `POST /api/auth/register` endpoint (NextAuth intentionally does not handle sign-up)
+
+## 2026-03-06
+
+- Adopted Server Actions over Route Handlers for internal UI mutations (documented reasoning in `docs/security-architecture.md`)
+- Implemented registration: Zod schema (`lib/validation/schemas.ts`), auth service (`lib/services/auth.ts`), Server Action (`lib/actions/auth.ts`), UI page (`app/register/page.tsx`)
+- Split login page into Server Component (server-side session redirect) + Client Component (`LoginForm.tsx`) — wired to NextAuth `signIn()`
+- Created `docs/security-architecture.md` covering all 11 security layers with OWASP references
+- Added database session strategy documentation to `docs/further-developement.md`

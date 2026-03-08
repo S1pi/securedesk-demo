@@ -8,16 +8,16 @@ Phase 2 – Core Logic
 
 ## Completed
 
-- Next.js + TypeScript + Tailwind + shadcn/ui project bootstrapped
-- Docker Compose PostgreSQL configured (`docker-compose.yml`)
-- Prisma schema with models: `User`, `Ticket`, `TicketMessage`, `AuditEvent` + enums
-- `lib/db.ts` Prisma singleton with `@prisma/adapter-pg`
-- Initial migration applied (`prisma/migrations/20260305000557_init`)
-- Boilerplate UI pages: `/login`, `/dashboard`, `/tickets`, `/tickets/new`, `/tickets/[id]`, `/admin/audit`
-- Shared nav component (`components/nav.tsx`) + authenticated route group layout
-- Dark mode enabled globally (`<html className="dark">`)
-- `lib/auth.ts` — NextAuth credentials provider, bcrypt password verification, JWT session with `userId` + `role`
-- `app/api/auth/[...nextauth]/route.ts` — NextAuth HTTP handler mounted
+- Project setup: Next.js + TS + Tailwind + shadcn/ui, Docker Compose PostgreSQL, Prisma schema + migration
+- NextAuth credentials provider with JWT session (`userId` + `role`), mounted at `/api/auth/[...nextauth]`
+- Boilerplate UI pages + shared nav + `(authenticated)` route group layout + dark mode
+- Centralized Zod validation schemas (`lib/validation/schemas.ts`)
+- Auth service layer (`lib/services/auth.ts`) — bcrypt hashing, user creation, `ServiceError` class
+- Registration via Server Action (`lib/actions/auth.ts`) — delegates to service layer, no public API endpoint
+- Registration UI (`app/register/page.tsx`) — uses `useActionState`, redirects to login on success
+- Login page split: Server Component (`app/login/page.tsx`) with server-side redirect + Client Component (`app/login/LoginForm.tsx`)
+- Security architecture documented (`docs/security-architecture.md`)
+- `docs/further-developement.md` updated with database session strategy notes
 
 ## In Progress
 
@@ -25,9 +25,9 @@ _(nothing actively in progress)_
 
 ## Next Steps
 
-- `app/api/auth/register/route.ts` — user registration endpoint (Zod validation, bcrypt hash, safe 400 on duplicate)
-- Implement permission functions in `lib/security/permissions.ts` (`canReadTicket`, `canReplyTicket`, `canChangeStatus`, `canReadAudit`)
-- Build ticket + audit service layers (`lib/services/ticket.ts`, `lib/services/audit.ts`)
-- Build API routes with Zod validation (`app/api/tickets/`, `app/api/tickets/[id]/messages`, `app/api/audit/`)
+- Implement permission functions in `lib/security/permissions.ts`
+- Build audit service (`lib/services/audit.ts`) + wire `AUTH_LOGIN_FAILED` logging in `lib/auth.ts`
+- Build ticket service (`lib/services/ticket.ts`) + Server Actions for ticket mutations
+- Wire real session data into dashboard, nav, and ticket pages
 
 **Note: Remember to remind user to update everything to git after each session!**
