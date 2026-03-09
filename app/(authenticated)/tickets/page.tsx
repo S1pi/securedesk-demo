@@ -9,36 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { requireActor } from "@/lib/security/requireActor";
+import { listTickets } from "@/lib/services/ticket";
 
-// TODO: replace with real data from API / server action (Also create types for Ticket and User)
-const MOCK_TICKETS = [
-  {
-    id: "tkt_1",
-    title: "Cannot reset my password",
-    status: "OPEN" as const,
-    createdBy: "alice@example.com",
-    createdAt: "2026-03-01T10:00:00Z",
-    updatedAt: "2026-03-02T14:30:00Z",
-  },
-  {
-    id: "tkt_2",
-    title: "Billing question about last invoice",
-    status: "OPEN" as const,
-    createdBy: "bob@example.com",
-    createdAt: "2026-03-02T08:15:00Z",
-    updatedAt: "2026-03-03T09:00:00Z",
-  },
-  {
-    id: "tkt_3",
-    title: "Feature request: dark mode",
-    status: "CLOSED" as const,
-    createdBy: "alice@example.com",
-    createdAt: "2026-02-20T16:45:00Z",
-    updatedAt: "2026-02-25T11:00:00Z",
-  },
-];
+export default async function TicketsPage() {
+  const actor = await requireActor();
 
-export default function TicketsPage() {
+  const tickets = await listTickets(actor);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -53,6 +31,8 @@ export default function TicketsPage() {
         </Button>
       </div>
 
+      {/* TODO: Only show createdBy column for staff members */}
+
       {/* Ticket list table */}
       <div className="rounded-md border">
         <Table>
@@ -66,7 +46,7 @@ export default function TicketsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {MOCK_TICKETS.map((ticket) => (
+            {tickets.map((ticket) => (
               <TableRow key={ticket.id}>
                 <TableCell>
                   <Link
@@ -84,7 +64,7 @@ export default function TicketsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {ticket.createdBy}
+                  {ticket.createdBy.email}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {new Date(ticket.createdAt).toLocaleDateString()}
@@ -95,7 +75,7 @@ export default function TicketsPage() {
               </TableRow>
             ))}
 
-            {MOCK_TICKETS.length === 0 && (
+            {tickets.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={5}
