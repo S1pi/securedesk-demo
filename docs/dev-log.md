@@ -22,3 +22,11 @@
 - Split login page into Server Component (server-side session redirect) + Client Component (`LoginForm.tsx`) — wired to NextAuth `signIn()`
 - Created `docs/security-architecture.md` covering all 11 security layers with OWASP references
 - Added database session strategy documentation to `docs/further-developement.md`
+
+## 2026-03-09
+
+- Implemented permission helpers and added `requireActor()` to standardize authenticated actor loading in server-rendered pages
+- Built ticket service foundation for create, list, and get flows with Prisma ownership filtering for customer ticket access
+- Wired ticket creation from the UI through `createTicketAction` and replaced the tickets list page mock data with real server-loaded data
+- Reworked `app/(authenticated)/tickets/[id]/page.tsx` into a server-rendered detail page that loads the real ticket thread and renders the initial message plus replies
+- Added reply-form scaffolding and permission-based status-toggle visibility in preparation for reply posting and ticket close/reopen flows

@@ -20,12 +20,21 @@ export const LoginSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const CreateTicketSchema = z.object({
-  title: z.string().min(1, "Title is required.").max(80, "Title must be at most 80 characters."),
-  message: z.string().min(1, "Message is required.").max(2000, "Message must be at most 2000 characters."),
+  title: z
+    .string()
+    .min(5, "Title is required and must be at least 5 characters.")
+    .max(80, "Title must be at most 80 characters."),
+  message: z
+    .string()
+    .min(5, "Message is required and must be at least 5 characters.")
+    .max(2000, "Message must be at most 2000 characters."),
 });
 
 export const PostReplySchema = z.object({
-  content: z.string().min(1, "Message is required.").max(2000, "Message must be at most 2000 characters."),
+  content: z
+    .string()
+    .min(5, "Message is required and must be at least 5 characters.")
+    .max(2000, "Message must be at most 2000 characters."),
 });
 
 export const ChangeStatusSchema = z.object({

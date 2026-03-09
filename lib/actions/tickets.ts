@@ -73,7 +73,14 @@ export async function createTicketAction(
   });
 
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
+    if (parsed.error.issues.length > 1) {
+      return {
+        success: false,
+        error: parsed.error.issues.map((issue) => issue.message).join(" "),
+      };
+    } else {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
   }
 
   try {

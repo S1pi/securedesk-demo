@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,19 +13,28 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { createTicketAction, TicketActionResult } from "@/lib/actions/tickets";
+
+const initialState: TicketActionResult = {
+  success: false,
+};
 
 export default function NewTicketPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [state, formAction, isPending] = useActionState(
+    createTicketAction,
+    initialState,
+  );
 
   // TODO: React.FormEvent is deprecated, replace with correct handler type (Check if React.SubmitEvent or similar is available in your React version)
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // TODO: POST to /api/tickets
-    console.log("Create ticket:", { title, message });
-    router.push("/tickets");
-  }
+
+  useEffect(() => {
+    if (state.success) {
+      router.push("/tickets");
+    }
+  }, [state.success, router]);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -40,21 +49,21 @@ export default function NewTicketPage() {
         <CardHeader>
           <CardTitle>Create a Support Ticket</CardTitle>
           <CardDescription>
-            Fill in the details below. Title: 5–80 characters. Message: 1–2000
+            Fill in the details below. Title: 5–80 characters. Message: 5–2000
             characters.
           </CardDescription>
         </CardHeader>
         {/* TODO: Add form validation and error handling, ensure malicious input is prevented */}
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form action={formAction} className="space-y-4" noValidate>
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
               <Input
                 id="title"
+                name="title"
                 placeholder="Brief summary of your issue"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                minLength={5}
                 maxLength={80}
                 required
               />
@@ -65,6 +74,7 @@ export default function NewTicketPage() {
               <Label htmlFor="message">Initial Message</Label>
               <Textarea
                 id="message"
+                name="message"
                 placeholder="Describe your issue in detail..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -78,7 +88,9 @@ export default function NewTicketPage() {
             </div>
 
             <div className="flex gap-3">
-              <Button type="submit">Submit Ticket</Button>
+              <Button type="submit">
+                {isPending ? "Submitting..." : "Submit Ticket"}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -88,6 +100,9 @@ export default function NewTicketPage() {
               </Button>
             </div>
           </form>
+          {state.error && (
+            <p className="mt-4 text-sm text-destructive">{state.error}</p>
+          )}
         </CardContent>
       </Card>
     </div>

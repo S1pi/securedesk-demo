@@ -100,16 +100,8 @@ export async function createTicket(actor: Actor, input: CreateTicketInput) {
 }
 
 /**
- * TODO: Implement ticket listing.
+ * Ticket listing with access control.
  *
- * Goal:
- * - customer sees only their own tickets
- * - staff sees all tickets
- *
- * Suggested approach:
- * - use a conditional where clause based on actor.role
- * - order by updatedAt desc so the newest activity appears first
- * - keep the selected fields intentionally small for list views
  */
 export async function listTickets(actor: Actor) {
   try {
@@ -160,6 +152,11 @@ export async function getTicket(actor: Actor, ticketId: string) {
     const ticket = await prisma.ticket.findFirst({
       where: ticketAccessFilter(actor, ticketId),
       include: {
+        createdBy: {
+          select: {
+            email: true,
+          },
+        },
         messages: {
           orderBy: { createdAt: "asc" },
           include: {
@@ -175,7 +172,7 @@ export async function getTicket(actor: Actor, ticketId: string) {
       },
     });
 
-    console.log("Ticket: ", ticket);
+    // console.log("Ticket: ", ticket);
 
     if (!ticket) {
       throw new ServiceError("NOT_FOUND", "Ticket not found.");

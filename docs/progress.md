@@ -11,18 +11,19 @@ Phase 2 – Core Logic
 - Project setup: Next.js + TS + Tailwind + shadcn/ui, Docker Compose PostgreSQL, Prisma schema + migration
 - Auth foundation: NextAuth credentials provider with JWT session (`userId` + `role`), registration flow, login pages, and `(authenticated)` route group protection
 - Validation + security helpers: centralized Zod schemas, permission helpers in `lib/security/permissions.ts`, and `requireActor()` in `lib/security/requireActor.ts`
-- Ticket read/create foundation: `createTicket`, `listTickets`, and `getTicket` implemented in `lib/services/ticket.ts`; tickets list page now loads real data in `app/(authenticated)/tickets/page.tsx`
+- Ticket read/create foundation: `createTicket`, `listTickets`, and `getTicket` implemented in `lib/services/ticket.ts`; tickets list page and ticket detail page now load real data
+- Ticket creation flow wired end-to-end: `createTicketAction` is connected to `app/(authenticated)/tickets/new/page.tsx` and new tickets can be submitted from the UI
 
 ## In Progress
 
-- Ticket mutations are partially wired in `lib/actions/tickets.ts`; create exists, reply/status flows still need service implementation and UI hookup
-- Ticket UI is partially connected: list page uses real data, but new-ticket and detail/reply pages still contain placeholder/mock behavior
+- Reply flow scaffolding exists in `app/(authenticated)/tickets/[id]/ReplyForm.tsx`, but `postReply` and its UI wiring are still unfinished
+- Status-change UI visibility is wired from permissions, but `changeTicketStatus` and the final submit approach are still unfinished
 
 ## Next Steps
 
 - Implement `postReply` and `changeTicketStatus` in `lib/services/ticket.ts`
-- Connect `createTicketAction`, reply, and status actions to the new-ticket and ticket-detail UI
+- Connect reply and status actions to the ticket detail UI
 - Build audit service (`lib/services/audit.ts`) and wire `AUTH_LOGIN_FAILED` logging in `lib/auth.ts`
-- Replace remaining placeholder session/data usage in dashboard, nav, and ticket detail screens
+- Replace remaining placeholder session/data usage in dashboard and nav
 
 **Note: Remember to remind user to update everything to git after each session!**
