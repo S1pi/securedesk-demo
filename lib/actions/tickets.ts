@@ -15,6 +15,7 @@ import {
   PostReplySchema,
 } from "@/lib/validation/schemas";
 import { isStaff, type Actor } from "../security/permissions";
+import { revalidatePath } from "next/cache";
 
 export type TicketActionResult = {
   success: boolean;
@@ -165,6 +166,10 @@ export async function postReplyAction(
   try {
     const actor = await getActorAction();
     await postReply(actor, ticketId, parsed.data);
+
+    // Revalidate the ticket detail page to show the new reply.
+    revalidatePath(`/tickets/${ticketId}`);
+
     return { success: true, ticketId };
   } catch (err) {
     if (err instanceof ServiceError) {
@@ -186,6 +191,8 @@ export async function postReplyAction(
 export async function changeTicketStatusAction(
   ticketId: string,
   nextStatus: TicketStatus,
+  _prev: TicketActionResult,
+  _formData: FormData,
 ): Promise<TicketActionResult> {
   const parsed = ChangeStatusSchema.safeParse({ status: nextStatus });
 
@@ -196,6 +203,7 @@ export async function changeTicketStatusAction(
   try {
     const actor = await getActorAction();
     await changeTicketStatus(actor, ticketId, parsed.data.status);
+    revalidatePath(`/tickets/${ticketId}`);
     return { success: true, ticketId, status: parsed.data.status };
   } catch (err) {
     if (err instanceof ServiceError) {

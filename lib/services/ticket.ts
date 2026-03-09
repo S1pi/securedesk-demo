@@ -214,10 +214,57 @@ export async function postReply(
   void ticketId;
   void input;
 
-  throw new ServiceError(
-    "NOT_IMPLEMENTED",
-    "postReply() still needs to be implemented.",
-  );
+  try {
+    const ticket = await prisma.ticket.findFirst({
+      where: ticketAccessFilter(actor, ticketId),
+    });
+
+    if (!ticket) {
+      throw new ServiceError("NOT_FOUND", "Ticket not found.");
+    }
+
+    if (ticket.status === "CLOSED") {
+      throw new ServiceError(
+        "TICKET_CLOSED",
+        "Cannot post a reply to a closed ticket.",
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.ticketMessage.create({
+        data: {
+          ticketId: ticket.id,
+          authorUserId: actor.id,
+          content: input.content,
+        },
+      });
+
+      // Update the parent ticket's updatedAt to reflect new activity
+      await tx.ticket.update({
+        where: { id: ticket.id },
+        data: { updatedAt: new Date() },
+      });
+    });
+
+    // For debugging
+    // console.log("Reply created: ", reply);
+    // return reply;
+  } catch (err) {
+    if (err instanceof ServiceError) {
+      throw err;
+    }
+
+    console.error("[postReply] unexpected error", err);
+    throw new ServiceError(
+      "REPLY_POST_FAILED",
+      "Failed to post the reply. Please try again.",
+    );
+  }
+
+  // throw new ServiceError(
+  //   "NOT_IMPLEMENTED",
+  //   "postReply() still needs to be implemented.",
+  // );
 }
 
 /**
@@ -238,9 +285,6 @@ export async function changeTicketStatus(
   ticketId: string,
   nextStatus: TicketStatus,
 ) {
-  void ticketId;
-  void nextStatus;
-
   if (!canChangeTicketStatus(actor)) {
     throw new ServiceError(
       "FORBIDDEN",
@@ -248,8 +292,51 @@ export async function changeTicketStatus(
     );
   }
 
-  throw new ServiceError(
-    "NOT_IMPLEMENTED",
-    "changeTicketStatus() still needs to be implemented.",
-  );
+  try {
+    await prisma.$transaction(async (tx) => {
+      const ticket = await tx.ticket.findUnique({
+        where: { id: ticketId },
+        select: { status: true },
+      });
+
+      if (!ticket) {
+        throw new ServiceError("NOT_FOUND", "Ticket not found.");
+      }
+
+      if (ticket.status === nextStatus) {
+        // No change needed
+        return;
+      }
+
+      if (nextStatus === "CLOSED") {
+        await tx.ticket.update({
+          where: { id: ticketId },
+          data: {
+            status: "CLOSED",
+            closedAt: new Date(),
+            closedByUserId: actor.id,
+          },
+        });
+      } else {
+        await tx.ticket.update({
+          where: { id: ticketId },
+          data: {
+            status: "OPEN",
+            closedAt: null,
+            closedByUserId: null,
+          },
+        });
+      }
+    });
+  } catch (err) {
+    if (err instanceof ServiceError) {
+      throw err;
+    }
+
+    console.error("[changeTicketStatus] unexpected error", err);
+    throw new ServiceError(
+      "STATUS_CHANGE_FAILED",
+      "Failed to change ticket status. Please try again.",
+    );
+  }
 }

@@ -2,10 +2,28 @@
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { postReplyAction, TicketActionResult } from "@/lib/actions/tickets";
+import { useActionState, useEffect, useState } from "react";
 
-export default function ReplyForm() {
+let initialState: TicketActionResult = { success: false };
+
+type ReplyFormProps = {
+  ticketId: string;
+  isClosed?: boolean;
+};
+
+export default function ReplyForm({
+  ticketId,
+  isClosed = false,
+}: ReplyFormProps) {
   const [reply, setReply] = useState("");
+
+  const actionTicketWithId = postReplyAction.bind(null, ticketId);
+
+  const [state, formAction, isPending] = useActionState(
+    actionTicketWithId,
+    initialState,
+  );
 
   // TODO:
   // This should become a small mutation component for posting replies.
@@ -19,14 +37,20 @@ export default function ReplyForm() {
   //
   // Validation and authorization must still be enforced on the server side even if
   // the UI disables the form.
-  function handleReply(e: React.SubmitEvent<HTMLFormElement>) {
-    e.preventDefault();
-    // TODO:
-    // Replace this temporary client-only handler with a Server Action based submit flow.
-    // For example, the form can use `action={formAction}` from `useActionState`, or
-    // a plain `<form action={...}>` if you do not need client-managed pending state.
-    setReply("");
-  }
+  // function handleReply(e: React.SubmitEvent<HTMLFormElement>) {
+  //   e.preventDefault();
+  //   // TODO:
+  //   // Replace this temporary client-only handler with a Server Action based submit flow.
+  //   // For example, the form can use `action={formAction}` from `useActionState`, or
+  //   // a plain `<form action={...}>` if you do not need client-managed pending state.
+  //   setReply("");
+  // }
+
+  useEffect(() => {
+    if (state.success) {
+      setReply("");
+    }
+  }, [state.success, ticketId]);
 
   return (
     <>
@@ -36,7 +60,7 @@ export default function ReplyForm() {
         data fetching or permission decisions. The parent server page should load the
         ticket, and this component should only handle the reply submission UX.
       */}
-      <form onSubmit={handleReply} className="space-y-3">
+      <form action={formAction} className="space-y-3">
         <Textarea
           name="content"
           placeholder="Write your reply..."
@@ -45,11 +69,17 @@ export default function ReplyForm() {
           maxLength={2000}
           rows={4}
           required
+          disabled={isClosed || isPending}
         />
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">{reply.length}/2000</p>
-          <Button type="submit">Post Reply</Button>
+          <Button type="submit" disabled={isClosed || isPending}>
+            {isPending ? "Posting reply…" : "Post Reply"}
+          </Button>
         </div>
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
       </form>
     </>
   );

@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import ReplyForm from "./ReplyForm";
+import StatusChangeButton from "./StatusChangeButton";
 import { requireActor } from "@/lib/security/requireActor";
 import { getTicket } from "@/lib/services/ticket";
 import {
@@ -11,6 +11,7 @@ import {
   canReadTicket,
 } from "@/lib/security/permissions";
 import { notFound } from "next/navigation";
+import { ServiceError } from "@/lib/CustomErrors";
 
 type TicketDetailPageParams = {
   params: Promise<{ id: string }>;
@@ -21,26 +22,35 @@ export default async function TicketDetailPage({
 }: TicketDetailPageParams) {
   const actor = await requireActor();
 
-  const { id } = await params;
+  const { id: ticketId } = await params;
 
-  // TODO:
-  // `getTicket()` is the main access-control boundary for this page.
-  // The intended behavior is:
-  // - staff can fetch any ticket by id
-  // - customers only get a result when the ticket belongs to them
-  // - non-existent / unauthorized tickets should resolve to a 404-style outcome
-  //
-  // Suggested approach:
-  // - keep the ownership filter inside the service query
-  // - catch a NOT_FOUND-style service error here and call `notFound()`
-  // - avoid showing a generic crash page for expected access denials
+  let ticket;
 
-  const ticket = await getTicket(actor, id);
+  try {
+    ticket = await getTicket(actor, ticketId);
+  } catch (err) {
+    if (err instanceof ServiceError && err.code === "NOT_FOUND") {
+      return notFound();
+    }
+
+    return (
+      <div className="p-4 bg-red-100 text-red-700 rounded">
+        <Link href="/tickets" className="text-sm text-blue-500 hover:underline">
+          &larr; Back to tickets
+        </Link>
+        <p className="text-sm">
+          An unexpected error occurred while loading the ticket. Please try
+          again later or contact support if the issue persists.
+        </p>
+      </div>
+    );
+  }
 
   // NOTE:
   // This extra permission check is probably redundant once `getTicket()` is trusted
   // to enforce ownership correctly. Keeping it is harmless as a defensive check,
   // but the service query should remain the real security boundary.
+  // We keep it as defence in depth in case of future changes to the service layer, and to avoid accidentally exposing ticket data in the UI if the service layer check is bypassed or removed by mistake.
 
   const ticketPermContext = {
     createdByUserId: ticket.createdByUserId,
@@ -48,12 +58,7 @@ export default async function TicketDetailPage({
   };
 
   if (!canReadTicket(actor, ticketPermContext)) {
-    notFound();
-  }
-
-  function handleStatusChange(newStatus: "OPEN" | "CLOSED") {
-    // TODO: PATCH /api/tickets/[id]
-    // console.log("Change status of", params.id, "to", newStatus);
+    return notFound();
   }
 
   return (
@@ -83,27 +88,18 @@ export default async function TicketDetailPage({
               {ticket.status}
             </Badge>
 
-            {/*
-              Status toggle guidance:
-              - simplest approach: keep this page server-rendered and submit a small
-                `<form action={...}>` to a Server Action that changes the status
-              - use a dedicated client component only if you want local pending state,
-                optimistic UI, or richer interaction than a basic form submit
-              - server-side authorization must still live in `changeTicketStatus()`
-            */}
             {canChangeTicketStatus(actor) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  handleStatusChange(
-                    ticket.status === "OPEN" ? "CLOSED" : "OPEN",
-                  )
-                }
-              >
-                {ticket.status === "OPEN" ? "Close Ticket" : "Reopen Ticket"}
-              </Button>
+              <StatusChangeButton
+                ticketId={ticketId}
+                currentStatus={ticket.status}
+              />
             )}
+
+            {/* For testing purposes only to check authorization  */}
+            {/* <StatusChangeButton
+              ticketId={ticketId}
+              currentStatus={ticket.status}
+            /> */}
           </div>
         </div>
       </div>
@@ -136,7 +132,7 @@ export default async function TicketDetailPage({
 
       <Separator />
 
-      <ReplyForm />
+      <ReplyForm ticketId={ticketId} isClosed={ticket.status === "CLOSED"} />
     </div>
   );
 }

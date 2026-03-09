@@ -8,6 +8,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { auth } from "@/lib/auth";
+import { Actor, isStaff } from "@/lib/security/permissions";
+import { requireActor } from "@/lib/security/requireActor";
+import { redirect } from "next/navigation";
 
 // TODO: replace with real session / data fetching
 const MOCK_USER = {
@@ -21,8 +25,17 @@ const MOCK_STATS = {
   totalTickets: 10,
 };
 
-export default function DashboardPage() {
-  const isStaff = MOCK_USER.role === "STAFF";
+export default async function DashboardPage() {
+  const user = await auth().then((session) => session?.user || null);
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const actor: Actor = {
+    id: user.id,
+    role: user.role,
+  };
 
   return (
     <div className="space-y-8">
@@ -30,8 +43,8 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {MOCK_USER.name}{" "}
-          <Badge variant="secondary">{MOCK_USER.role}</Badge>
+          Welcome back, {user.email}{" "}
+          <Badge variant="secondary">{user.role}</Badge>
         </p>
       </div>
 
@@ -80,7 +93,7 @@ export default function DashboardPage() {
         <Button variant="outline" asChild>
           <Link href="/tickets">View All Tickets</Link>
         </Button>
-        {isStaff && (
+        {isStaff(actor) && (
           <Button variant="outline" asChild>
             <Link href="/admin/audit">Audit Log</Link>
           </Button>

@@ -40,7 +40,7 @@ export default async function TicketsPage() {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created By</TableHead>
+              {actor.role === "STAFF" && <TableHead>Created By</TableHead>}
               <TableHead>Created</TableHead>
               <TableHead>Last Updated</TableHead>
             </TableRow>
@@ -63,9 +63,11 @@ export default async function TicketsPage() {
                     {ticket.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {ticket.createdBy.email}
-                </TableCell>
+                {actor.role === "STAFF" && (
+                  <TableCell className="text-muted-foreground">
+                    {ticket.createdBy.email}
+                  </TableCell>
+                )}
                 <TableCell className="text-muted-foreground">
                   {new Date(ticket.createdAt).toLocaleDateString()}
                 </TableCell>
