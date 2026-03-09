@@ -30,3 +30,11 @@
 - Wired ticket creation from the UI through `createTicketAction` and replaced the tickets list page mock data with real server-loaded data
 - Reworked `app/(authenticated)/tickets/[id]/page.tsx` into a server-rendered detail page that loads the real ticket thread and renders the initial message plus replies
 - Added reply-form scaffolding and permission-based status-toggle visibility in preparation for reply posting and ticket close/reopen flows
+
+## 2026-03-10
+
+- Finished the ticket interaction flow end-to-end: reply posting, staff ticket close/reopen, and closed-ticket UI handling are now wired through Server Actions and the ticket service
+- Replaced dashboard mock data with real authenticated actor data and live ticket statistics from `getTicketStats()`
+- Split the authenticated nav into a server wrapper plus client component, passed real session data into it, and improved active-link matching for nested routes
+- Replaced hardcoded role unions with Prisma `Role` in auth-facing types and introduced shared auth types in `lib/types/auth.ts`
+- Added shared ticket contracts in `lib/types/tickets.ts` and documented the future cleanup path for using Prisma enum values as runtime status constants

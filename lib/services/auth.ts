@@ -1,20 +1,20 @@
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/db";
 import { ServiceError } from "../CustomErrors";
-import { Prisma } from "@/app/generated/prisma/client";
+import { Prisma, type Role } from "@/app/generated/prisma/client";
 
 const BCRYPT_ROUNDS = 12;
 
 type RegisterInput = {
   email: string;
   password: string;
-  role: "CUSTOMER" | "STAFF";
+  role: Role;
 };
 
 type RegisterResult = {
   id: string;
   email: string;
-  role: string;
+  role: Role;
 };
 
 /**

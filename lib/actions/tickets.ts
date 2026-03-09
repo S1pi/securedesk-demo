@@ -14,26 +14,12 @@ import {
   CreateTicketSchema,
   PostReplySchema,
 } from "@/lib/validation/schemas";
-import { isStaff, type Actor } from "../security/permissions";
+import {
+  type ListTicketsResult,
+  type TicketActionResult,
+} from "@/lib/types/tickets";
+import { type Actor } from "../security/permissions";
 import { revalidatePath } from "next/cache";
-
-export type TicketActionResult = {
-  success: boolean;
-  error?: string;
-  ticketId?: string;
-  status?: TicketStatus;
-};
-
-export type ListTicketsResult = {
-  success: boolean;
-  error?: string;
-  tickets?: Array<{
-    id: string;
-    title: string;
-    status: TicketStatus;
-    createdAt: Date;
-  }>;
-};
 
 /**
  * Convert the authenticated session into the minimal actor shape used by the

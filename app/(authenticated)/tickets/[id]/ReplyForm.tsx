@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { postReplyAction, TicketActionResult } from "@/lib/actions/tickets";
+import { postReplyAction } from "@/lib/actions/tickets";
+import { type TicketActionResult } from "@/lib/types/tickets";
 import { useActionState, useEffect, useState } from "react";
 
 let initialState: TicketActionResult = { success: false };

@@ -229,6 +229,22 @@ Instead of open self-registration, staff (or admin) sends a signed invitation li
 
 ## Technical Improvements
 
+### Prisma Enum Values For Runtime Status Constants
+
+The project already uses Prisma `TicketStatus` as the main TypeScript type in ticket-related code, but some runtime status values are still written as string literals such as `"OPEN"` and `"CLOSED"`.
+
+**Future cleanup direction:**
+
+- Keep Prisma `TicketStatus` as the single source of truth for the type.
+- Replace repeated runtime status strings in branching, query filters, and validation helpers with Prisma enum values.
+- When validation needs an explicit allowed-values list, prefer a small shared constant tuple derived from Prisma enum values instead of manually rewriting the strings.
+
+**Why:**
+
+- Reduces schema drift between runtime values and TypeScript types.
+- Makes future status additions safer because the schema and application code stay aligned.
+- Keeps ticket status logic easier to audit in one consistent format.
+
 ### Database Session Strategy (replacing JWT)
 
 The MVP uses **JWT sessions** (`strategy: "jwt"` in `lib/auth.ts`). This means session data is stored entirely in a signed cookie — no database query is needed to check auth. `auth()` can be called freely in every Server Component.

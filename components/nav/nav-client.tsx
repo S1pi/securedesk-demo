@@ -1,19 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
-
-// TODO: replace with real session from NextAuth
-const MOCK_USER = {
-  name: "Demo User",
-  email: "demo@example.com",
-  role: "CUSTOMER" as "CUSTOMER" | "STAFF",
-};
+import { type NavUser } from "@/lib/types/auth";
+import { isActivePath } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
@@ -22,11 +17,14 @@ const NAV_ITEMS = [
 
 const STAFF_NAV_ITEMS = [{ href: "/admin/audit", label: "Audit Log" }];
 
-export function Nav() {
-  const router = useRouter();
+type NavClientProps = {
+  user: NavUser;
+};
+
+export function NavClient({ user }: NavClientProps) {
   const pathname = usePathname();
   const [isDarkMode, setIsDarkMode] = useState<boolean | null>(null);
-  const isStaff = MOCK_USER.role === "STAFF";
+  const isStaff = user.role === "STAFF";
 
   const toggleDarkMode = () => {
     const html = document.documentElement;
@@ -39,16 +37,11 @@ export function Nav() {
     }
   };
 
-  // TODO: Implement sign out functionality using NextAuth signOut()
-  // For now, we'll just forward to the login page on sign out
-  const handleSignOut = () => {
-    router.push("/login");
-  };
-
   useEffect(() => {
     const prefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)",
     ).matches;
+
     if (prefersDark) {
       document.documentElement.classList.add("dark");
       setIsDarkMode(true);
@@ -56,12 +49,11 @@ export function Nav() {
       document.documentElement.classList.remove("dark");
       setIsDarkMode(false);
     }
-  }, [pathname]);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4">
-        {/* Brand */}
         <Link href="/" className="font-bold tracking-tight">
           SecureDesk
         </Link>
@@ -72,12 +64,13 @@ export function Nav() {
           {isDarkMode ? "Light Mode" : "Dark Mode"}
         </Button>
 
-        {/* Navigation links */}
         <nav className="flex items-center gap-1">
           {NAV_ITEMS.map((item) => (
             <Button
               key={item.href}
-              variant={pathname === item.href ? "secondary" : "ghost"}
+              variant={
+                isActivePath(pathname, item.href) ? "secondary" : "ghost"
+              }
               size="sm"
               asChild
             >
@@ -88,7 +81,9 @@ export function Nav() {
             STAFF_NAV_ITEMS.map((item) => (
               <Button
                 key={item.href}
-                variant={pathname.startsWith(item.href) ? "secondary" : "ghost"}
+                variant={
+                  isActivePath(pathname, item.href) ? "secondary" : "ghost"
+                }
                 size="sm"
                 asChild
               >
@@ -97,15 +92,11 @@ export function Nav() {
             ))}
         </nav>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* User info */}
         <div className="flex items-center gap-3">
-          <Badge variant="outline">{MOCK_USER.role}</Badge>
-          <span className="text-sm text-muted-foreground">
-            {MOCK_USER.email}
-          </span>
+          <Badge variant="outline">{user.role}</Badge>
+          <span className="text-sm text-muted-foreground">{user.email}</span>
           <Button
             variant="ghost"
             size="sm"

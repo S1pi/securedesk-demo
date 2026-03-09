@@ -2,10 +2,8 @@
 
 import { type TicketStatus } from "@/app/generated/prisma/client";
 import { Button } from "@/components/ui/button";
-import {
-  changeTicketStatusAction,
-  type TicketActionResult,
-} from "@/lib/actions/tickets";
+import { changeTicketStatusAction } from "@/lib/actions/tickets";
+import { type TicketActionResult } from "@/lib/types/tickets";
 import { useActionState } from "react";
 
 const initialState: TicketActionResult = { success: false };

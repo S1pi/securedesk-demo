@@ -1,29 +1,21 @@
 import { NextAuthOptions, getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { type Role } from "@/app/generated/prisma/client";
 import prisma from "@/lib/db";
-
-// TODO: replace role with a type from your database schema, ensure this is consistent across your application
+import { type SessionUser } from "@/lib/types/auth";
 
 declare module "next-auth" {
   interface Session {
-    user: {
-      id: string;
-      email: string;
-      role: "CUSTOMER" | "STAFF";
-    };
+    user: SessionUser;
   }
-  interface User {
-    id: string;
-    email: string;
-    role: "CUSTOMER" | "STAFF";
-  }
+  interface User extends SessionUser {}
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    role: "CUSTOMER" | "STAFF";
+    role: Role;
   }
 }
 
@@ -82,7 +74,7 @@ export const authOptions: NextAuthOptions = {
         return {
           id: user.id,
           email: user.email,
-          role: user.role as "CUSTOMER" | "STAFF",
+          role: user.role,
         };
       },
     }),

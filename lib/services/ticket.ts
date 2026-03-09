@@ -10,6 +10,7 @@ import {
   isStaff,
   type Actor,
 } from "@/lib/security/permissions";
+import { type TicketListItem, type TicketStats } from "@/lib/types/tickets";
 
 export type CreateTicketInput = {
   title: string;
@@ -103,7 +104,7 @@ export async function createTicket(actor: Actor, input: CreateTicketInput) {
  * Ticket listing with access control.
  *
  */
-export async function listTickets(actor: Actor) {
+export async function listTickets(actor: Actor): Promise<TicketListItem[]> {
   try {
     const whereClause = isStaff(actor) ? {} : { createdByUserId: actor.id };
 
@@ -337,6 +338,32 @@ export async function changeTicketStatus(
     throw new ServiceError(
       "STATUS_CHANGE_FAILED",
       "Failed to change ticket status. Please try again.",
+    );
+  }
+}
+
+export async function getTicketStats(actor: Actor): Promise<TicketStats> {
+  try {
+    const whereClause = isStaff(actor) ? {} : { createdByUserId: actor.id };
+    const [totalTickets, openTickets, closedTickets] = await Promise.all([
+      prisma.ticket.count({ where: whereClause }),
+      prisma.ticket.count({ where: { ...whereClause, status: "OPEN" } }),
+      prisma.ticket.count({ where: { ...whereClause, status: "CLOSED" } }),
+    ]);
+    const stats = { totalTickets, openTickets, closedTickets };
+
+    // For testing error handling in the UI:
+    // throw new ServiceError(
+    //   "STATS_FETCH_FAILED",
+    //   "Failed to fetch ticket stats. Please try again.",
+    // );
+
+    return stats;
+  } catch (err) {
+    console.error("[getTicketStats] unexpected error", err);
+    throw new ServiceError(
+      "STATS_FETCH_FAILED",
+      "Failed to fetch ticket stats. Please try again.",
     );
   }
 }
