@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RateLimitExceededError } from "@/lib/CustomErrors";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -39,6 +40,10 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
+      if (res.error === "RateLimitExceeded") {
+        setError("Too many login attempts. Please try again later.");
+        return;
+      }
       setError("Invalid email or password.");
       return;
     }

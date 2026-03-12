@@ -6,6 +6,8 @@ import prisma from "@/lib/db";
 import { type SessionUser } from "@/lib/types/auth";
 import { logAuditEvent, toLogAuditEventInput } from "./services/audit";
 import { createRequestAuditContext } from "./request-audit";
+import { checkRateLimit } from "./security/rate-limit-boundary";
+import { RateLimitExceededError } from "./CustomErrors";
 
 declare module "next-auth" {
   interface Session {
@@ -66,6 +68,33 @@ export const authOptions: NextAuthOptions = {
           headerSource,
         );
 
+        const normalizedEmail = credentials.email.trim().toLowerCase();
+        const souceIp = requestAuditContext.sourceIp ?? "unknown_ip";
+
+        const ipKey = souceIp;
+        const ipEmailKey = `${souceIp}:${normalizedEmail}`;
+
+        try {
+          // Check both IP-based and IP+email-based rate limits to mitigate both credential stuffing and targeted attacks.
+          await checkRateLimit({
+            scope: "login_ip_identifier",
+            limiterKey: ipEmailKey,
+            endpoint: requestAuditContext.endpoint,
+            sourceIp: requestAuditContext.sourceIp,
+            userAgent: requestAuditContext.userAgent,
+          });
+
+          await checkRateLimit({
+            scope: "login_ip",
+            limiterKey: ipKey,
+            endpoint: requestAuditContext.endpoint,
+            sourceIp: requestAuditContext.sourceIp,
+            userAgent: requestAuditContext.userAgent,
+          });
+        } catch {
+          throw new RateLimitExceededError("RateLimitExceeded");
+        }
+
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
@@ -101,6 +130,7 @@ export const authOptions: NextAuthOptions = {
             toLogAuditEventInput({
               action: "AUTH_LOGIN_FAILED",
               actorUserId: null,
+              target: { type: "User", id: credentials.email },
               meta: {
                 endpoint: requestAuditContext.endpoint,
                 sourceIp: requestAuditContext.sourceIp ?? "unknown",

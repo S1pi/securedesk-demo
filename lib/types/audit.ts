@@ -72,7 +72,7 @@ export type CurrentAuditEventContract =
   | {
       action: "AUTH_LOGIN_FAILED";
       actorUserId?: null;
-      target?: { type?: null; id?: null };
+      target?: { type?: "User"; id?: string };
       meta: AuthLoginFailedMeta;
     }
   | {

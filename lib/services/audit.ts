@@ -34,7 +34,6 @@ function getAuditReason(meta: AuditMetaObject): string | null {
 }
 
 function buildAuditEventCreateData(input: LogAuditEventInput) {
-  console.log("input in build: ", input);
   return {
     actorUserId: input.actorUserId ?? null,
     action: input.action,
@@ -198,8 +197,6 @@ export async function getAuditEventById(
       },
     },
   });
-
-  console.log("Event from db: ", event);
 
   return event ? mapAuditEvent(event) : null;
 }

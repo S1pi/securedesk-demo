@@ -10,3 +10,10 @@ export class ServiceError extends Error {
     this.name = "ServiceError";
   }
 }
+
+export class RateLimitExceededError extends ServiceError {
+  constructor(message: string) {
+    super("RATE_LIMIT_EXCEEDED", message);
+    this.name = "RateLimitExceededError";
+  }
+}

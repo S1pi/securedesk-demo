@@ -52,7 +52,6 @@ function formatActionLabel(action: string): string {
 }
 
 function formatTarget(event: AuditLogListItem | null): string {
-  // console.log("target: ", event);
   if (!event?.targetType) {
     return "No target";
   }
@@ -78,8 +77,6 @@ function buildMetaPreview(event: AuditLogListItem | null): string {
 }
 
 function getRequestContextRows(event: AuditLogListItem | null) {
-  console.log("getRequestContextRows: ", event);
-
   return [
     {
       label: "Endpoint",
@@ -135,10 +132,46 @@ export default async function AuditEventDetailPage({
   } catch (err) {
     console.error("[AuditEventDetailPage] error loading audit event", err);
     if (err instanceof ServiceError && err.code === "FORBIDDEN") {
-      // console.log("errorissa");
       return notFound();
     }
   }
+
+  // If the event can't be loaded for any reason (not found, invalid ID format, etc), we still want to show the page skeleton with placeholders, rather than an error page. This is because the most likely reason for an error is that the ID is invalid or the event has been deleted, and in both cases we want to show the same "event not found" UI.
+  if (!auditEvent) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <Link
+              href="/admin/audit"
+              className="text-sm text-muted-foreground hover:underline"
+            >
+              &larr; Back to audit log
+            </Link>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">
+              Audit Event Detail
+            </h1>
+            <p className="text-muted-foreground">
+              Detail view for a single audit event.
+            </p>
+          </div>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span className="break-all">Event ID: {id}</span>
+              <Badge variant="outline">Event not found</Badge>
+            </CardTitle>
+            <CardDescription>
+              We couldn't load the details for this event. It may have been
+              deleted or the ID may be invalid.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   const requestContextRows = getRequestContextRows(auditEvent);
 
   return (
