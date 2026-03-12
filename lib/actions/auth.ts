@@ -29,7 +29,7 @@ export async function registerAction(
   try {
     const headerStore = await headers();
     const requestAuditContext = createRequestAuditContext(
-      "registerAction",
+      "auth.registerAction",
       headerStore,
     );
 
