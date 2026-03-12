@@ -34,6 +34,7 @@ function getAuditReason(meta: AuditMetaObject): string | null {
 }
 
 function buildAuditEventCreateData(input: LogAuditEventInput) {
+  console.log("input in build: ", input);
   return {
     actorUserId: input.actorUserId ?? null,
     action: input.action,
@@ -152,4 +153,53 @@ export async function listAuditEvents(
       "Failed to load audit events. Please try again.",
     );
   }
+}
+
+export async function getAuditEventById(
+  actor: Actor,
+  id: string,
+): Promise<AuditLogListItem | null> {
+  // Implement this function to retrieve a single audit event by its ID.
+  // This will be useful for the audit event detail page.
+  if (!canReadAuditLog(actor)) {
+    const headerStore = await headers();
+
+    const requestAuditContext = createRequestAuditContext(
+      "/admin/audit/[id]",
+      headerStore,
+    );
+
+    await logAuditEvent(
+      toLogAuditEventInput({
+        action: "FORBIDDEN_ACTION_ATTEMPT",
+        actorUserId: actor.id,
+        target: { type: "AuditEvent", id },
+        meta: {
+          endpoint: requestAuditContext.endpoint,
+          sourceIp: requestAuditContext.sourceIp ?? "unknown",
+          userAgent: requestAuditContext.userAgent,
+          reason: "get_audit_event_by_id_forbidden",
+        },
+      }),
+    );
+    throw new ServiceError(
+      "FORBIDDEN",
+      "You are not allowed to view this audit event.",
+    );
+  }
+
+  const event = await prisma.auditEvent.findUnique({
+    where: { id },
+    include: {
+      actor: {
+        select: {
+          email: true,
+        },
+      },
+    },
+  });
+
+  console.log("Event from db: ", event);
+
+  return event ? mapAuditEvent(event) : null;
 }

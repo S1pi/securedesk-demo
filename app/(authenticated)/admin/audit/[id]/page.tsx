@@ -16,10 +16,11 @@ import { canReadAuditLog } from "@/lib/security/permissions";
 import { requireActor } from "@/lib/security/requireActor";
 import { type AuditLogListItem } from "@/lib/types/audit";
 import {
-  listAuditEvents,
+  getAuditEventById,
   logAuditEvent,
   toLogAuditEventInput,
 } from "@/lib/services/audit";
+import { ServiceError } from "@/lib/CustomErrors";
 
 const ACTION_LABELS: Record<string, string> = {
   AUTH_LOGIN_FAILED: "Login Failed",
@@ -51,6 +52,7 @@ function formatActionLabel(action: string): string {
 }
 
 function formatTarget(event: AuditLogListItem | null): string {
+  // console.log("target: ", event);
   if (!event?.targetType) {
     return "No target";
   }
@@ -76,6 +78,8 @@ function buildMetaPreview(event: AuditLogListItem | null): string {
 }
 
 function getRequestContextRows(event: AuditLogListItem | null) {
+  console.log("getRequestContextRows: ", event);
+
   return [
     {
       label: "Endpoint",
@@ -112,6 +116,7 @@ export default async function AuditEventDetailPage({
       toLogAuditEventInput({
         action: "FORBIDDEN_ACTION_ATTEMPT",
         actorUserId: actor.id,
+        target: { type: "AuditEvent", id },
         meta: {
           endpoint: requestAuditContext.endpoint,
           sourceIp: requestAuditContext.sourceIp ?? "unknown",
@@ -124,9 +129,17 @@ export default async function AuditEventDetailPage({
     return notFound();
   }
 
-  const auditEvents = await listAuditEvents(actor, { limit: 100 });
-  const event = auditEvents.find((candidate) => candidate.id === id) ?? null;
-  const requestContextRows = getRequestContextRows(event);
+  let auditEvent: AuditLogListItem | null = null;
+  try {
+    auditEvent = await getAuditEventById(actor, id);
+  } catch (err) {
+    console.error("[AuditEventDetailPage] error loading audit event", err);
+    if (err instanceof ServiceError && err.code === "FORBIDDEN") {
+      // console.log("errorissa");
+      return notFound();
+    }
+  }
+  const requestContextRows = getRequestContextRows(auditEvent);
 
   return (
     <div className="space-y-6">
@@ -142,7 +155,7 @@ export default async function AuditEventDetailPage({
             Audit Event Detail
           </h1>
           <p className="text-muted-foreground">
-            Mock detail layout for a single audit event.
+            Detail view for a single audit event.
           </p>
         </div>
 
@@ -154,17 +167,21 @@ export default async function AuditEventDetailPage({
       <Card>
         <CardHeader>
           <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="break-all">{id}</span>
+            <span className="break-all">Event ID: {id}</span>
             <Badge
-              variant={ACTION_VARIANTS[event?.action ?? "outline"] ?? "outline"}
+              variant={
+                ACTION_VARIANTS[auditEvent?.action ?? "outline"] ?? "outline"
+              }
             >
-              {formatActionLabel(event?.action ?? "FORBIDDEN_ACTION_ATTEMPT")}
+              {formatActionLabel(
+                auditEvent?.action ?? "FORBIDDEN_ACTION_ATTEMPT",
+              )}
             </Badge>
           </CardTitle>
           <CardDescription>
-            {event
-              ? "This preview reuses the current audit list read model until a dedicated detail query is implemented."
-              : "This is a layout-only placeholder because the event was not found in the current list query."}
+            {auditEvent
+              ? "Structured metadata for this audit event."
+              : "Loading... (this is a mockup, not the final detail page)"}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -173,26 +190,28 @@ export default async function AuditEventDetailPage({
               Time
             </p>
             <p className="text-sm">
-              {event ? new Date(event.createdAt).toLocaleString() : "—"}
+              {auditEvent
+                ? new Date(auditEvent.createdAt).toLocaleString()
+                : "—"}
             </p>
           </div>
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Reason
             </p>
-            <p className="text-sm">{event?.reason ?? "—"}</p>
+            <p className="text-sm">{auditEvent?.reason ?? "—"}</p>
           </div>
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Actor
             </p>
-            <p className="text-sm break-all">{event?.actorEmail ?? "—"}</p>
+            <p className="text-sm break-all">{auditEvent?.actorEmail ?? "—"}</p>
           </div>
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Target
             </p>
-            <p className="text-sm break-all">{formatTarget(event)}</p>
+            <p className="text-sm break-all">{formatTarget(auditEvent)}</p>
           </div>
         </CardContent>
       </Card>
@@ -225,21 +244,29 @@ export default async function AuditEventDetailPage({
           <CardHeader>
             <CardTitle>Mockup Notes</CardTitle>
             <CardDescription>
-              This page is intentionally a mockup, not the final read path.
+              Notes and ideas for the final design of this page. The current
+              content is just a placeholder to help visualize the layout and
+              structure of the page.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              The final version should load a single audit event by id instead
-              of scanning the list view model.
+              This page is a starting point for the audit event detail view. It
+              is not the final design, but it includes the key pieces of
+              information that we want to surface for each audit event.
             </p>
             <p>
-              The main audit table can stay compact while this page shows the
-              full structured payload.
+              The main goal of this page is to provide enough context for
+              investigating security incidents. The request context section is
+              especially important for this, as it surfaces critical information
+              about the request that triggered the event in a structured and
+              easily digestible format.
             </p>
             <p>
-              Future refinements can add linked targets, richer field
-              formatting, and investigator notes if needed.
+              The raw metadata section is also important, as it allows
+              investigators to see the full JSON payload for the event. This can
+              be useful for debugging and to verify that important context is
+              being captured in the audit log.
             </p>
           </CardContent>
         </Card>
@@ -249,12 +276,14 @@ export default async function AuditEventDetailPage({
         <CardHeader>
           <CardTitle>Raw Metadata</CardTitle>
           <CardDescription>
-            Full metadata preview for the future detail view.
+            Full JSON payload for this event's metadata. Useful for debugging
+            and to verify that important context is being captured in the audit
+            log.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <pre className="overflow-x-auto rounded-lg border bg-muted/30 p-4 text-xs leading-6 text-muted-foreground">
-            {buildMetaPreview(event)}
+            {buildMetaPreview(auditEvent)}
           </pre>
         </CardContent>
       </Card>
