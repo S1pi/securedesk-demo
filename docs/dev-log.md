@@ -39,7 +39,7 @@
 - Replaced hardcoded role unions with Prisma `Role` in auth-facing types and introduced shared auth types in `lib/types/auth.ts`
 - Added shared ticket contracts in `lib/types/tickets.ts` and documented the future cleanup path for using Prisma enum values as runtime status constants
 
-## 2026-03-12
+## 2026-03-11
 
 - Added audit service foundations, shared audit types, and request-audit context helpers, then documented the audit payload contract and current audit status
 - Wired `AUTH_LOGIN_FAILED` plus initial `FORBIDDEN_ACTION_ATTEMPT` logging for audit-log access, ticket ownership denials, and staff-only status changes
