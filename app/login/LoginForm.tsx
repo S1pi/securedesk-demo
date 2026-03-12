@@ -40,8 +40,8 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
-      if (res.error === "RateLimitExceeded") {
-        setError("Too many login attempts. Please try again later.");
+      if (res.error.includes("Too many attempts")) {
+        setError(res.error);
         return;
       }
       setError("Invalid email or password.");

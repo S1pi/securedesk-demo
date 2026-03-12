@@ -1,3 +1,4 @@
+import { RateLimitExceededError } from "../CustomErrors";
 import { logAuditEvent, toLogAuditEventInput } from "../services/audit";
 import {
   consumeRateLimit,
@@ -46,7 +47,7 @@ export async function checkRateLimit(input: BoundaryInput): Promise<void> {
     markRateLimitAuditLogged(config.scope, input.limiterKey);
   }
 
-  throw new Error(
+  throw new RateLimitExceededError(
     `Too many attempts. Please try again after ${result.retryAfterSeconds} seconds.`,
   );
 }

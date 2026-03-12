@@ -91,8 +91,11 @@ export const authOptions: NextAuthOptions = {
             sourceIp: requestAuditContext.sourceIp,
             userAgent: requestAuditContext.userAgent,
           });
-        } catch {
-          throw new RateLimitExceededError("RateLimitExceeded");
+        } catch (err) {
+          if (err instanceof RateLimitExceededError) {
+            throw err;
+          }
+          return null;
         }
 
         const user = await prisma.user.findUnique({

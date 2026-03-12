@@ -1,6 +1,7 @@
 type RateLimitScope =
   | "login_ip"
   | "login_ip_identifier"
+  | "register_ip"
   | "ticket_creation"
   | "ticket_reply"
   | "ticket_status_change";
@@ -10,11 +11,6 @@ export type RateLimitConfig = {
   maxAttempts: number;
   windowMs: number;
 };
-
-// type RateLimitRecord = {
-//   attempts: number;
-//   firstAttemptAt: Date;
-// };
 
 type RateLimitResult = {
   allowed: boolean;
@@ -39,6 +35,11 @@ export const RATE_LIMITS: Record<RateLimitScope, RateLimitConfig> = {
     scope: "login_ip_identifier",
     maxAttempts: 5,
     windowMs: 10 * 60 * 1000, // 10 minutes
+  },
+  register_ip: {
+    scope: "register_ip",
+    maxAttempts: 5,
+    windowMs: 60 * 60 * 1000, // 1 hour
   },
   ticket_creation: {
     scope: "ticket_creation",
