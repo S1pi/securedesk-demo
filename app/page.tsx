@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Root page redirects into the app
+// Let the authenticated area decide whether this resolves to /dashboard or /login.
 export default function RootPage() {
-  // TODO: check session — if authenticated redirect to /dashboard, else /login
   redirect("/dashboard");
 }

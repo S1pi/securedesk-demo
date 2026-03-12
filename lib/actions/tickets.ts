@@ -20,6 +20,8 @@ import {
 } from "@/lib/types/tickets";
 import { type Actor } from "../security/permissions";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { createRequestAuditContext } from "../request-audit";
 
 /**
  * Convert the authenticated session into the minimal actor shape used by the
@@ -48,7 +50,7 @@ async function getActorAction(): Promise<Actor> {
  * What you should implement next:
  * - decide whether to return field-level errors or one general message
  * - optionally revalidate the tickets list page after a successful mutation
- * - redirect to the new ticket detail page once createTicket() returns real data
+ * - redirect to the new ticket detail page instead of the tickets list
  */
 export async function createTicketAction(
   _prev: TicketActionResult,
@@ -74,15 +76,9 @@ export async function createTicketAction(
     const actor = await getActorAction();
     const ticket = await createTicket(actor, parsed.data);
 
-    // TODO: Check what to return here once createTicket() is implemented. The goal is to return enough
-    // information for the UI to either refresh the list or redirect to the new ticket's detail page.
-
     return {
       success: true,
-      ticketId:
-        typeof ticket === "object" && ticket !== null && "id" in ticket
-          ? String(ticket.id)
-          : undefined,
+      ticketId: ticket.id,
     };
   } catch (err) {
     if (err instanceof ServiceError) {
@@ -93,21 +89,6 @@ export async function createTicketAction(
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }
-
-/**
- * Ticket listing action.
- *
- * Goal:
- * - return the list of tickets the actor is allowed to see
- * - return only the fields needed for the list view, not the full ticket details
- * - optionally support pagination or sorting in the future
- *
- * Suggested approach:
- * - implement the access filter in ticketAccessFilter() and reuse it in getTicket()
- * - return a simplified ticket shape here, not the full Prisma model with messages
- * - throw ServiceError("TICKET_LIST_FETCH_FAILED", ...) on unexpected errors
- * - return an empty list when there are no tickets, don't throw an error
- */
 
 export async function listTicketsAction(): Promise<ListTicketsResult> {
   try {
@@ -129,13 +110,6 @@ export async function listTicketsAction(): Promise<ListTicketsResult> {
   }
 }
 
-/**
- * Boilerplate for posting a reply to a ticket thread.
- *
- * What you should implement next:
- * - revalidate the ticket detail page after success
- * - return enough information for the UI to refresh or redirect cleanly
- */
 export async function postReplyAction(
   ticketId: string,
   _prev: TicketActionResult,
@@ -167,13 +141,6 @@ export async function postReplyAction(
   }
 }
 
-/**
- * Boilerplate for the staff-only status toggle.
- *
- * What you should implement next:
- * - connect the calling UI to this action
- * - decide whether the UI should optimistically update or wait for the server response
- */
 export async function changeTicketStatusAction(
   ticketId: string,
   nextStatus: TicketStatus,
@@ -188,7 +155,20 @@ export async function changeTicketStatusAction(
 
   try {
     const actor = await getActorAction();
-    await changeTicketStatus(actor, ticketId, parsed.data.status);
+
+    const headersStore = await headers();
+
+    const requestAuditContext = createRequestAuditContext(
+      "ticket.changeTicketStatusAction",
+      headersStore,
+    );
+
+    await changeTicketStatus(
+      actor,
+      ticketId,
+      parsed.data.status,
+      requestAuditContext,
+    );
     revalidatePath(`/tickets/${ticketId}`);
     return { success: true, ticketId, status: parsed.data.status };
   } catch (err) {

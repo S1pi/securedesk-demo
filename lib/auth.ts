@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import { type Role } from "@/app/generated/prisma/client";
 import prisma from "@/lib/db";
 import { type SessionUser } from "@/lib/types/auth";
+import { logAuditEvent, toLogAuditEventInput } from "./services/audit";
+import { createRequestAuditContext } from "./request-audit";
 
 declare module "next-auth" {
   interface Session {
@@ -47,28 +49,68 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email", placeholder: "" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        const headerSource = {
+          get: (name: string) => {
+            const headerValue =
+              req?.headers?.[name] ?? req?.headers?.[name.toLowerCase()];
+
+            return typeof headerValue === "string" ? headerValue : null;
+          },
+        };
+
+        const requestAuditContext = createRequestAuditContext(
+          "/api/auth/callback/credentials",
+          headerSource,
+        );
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
         if (!user) {
-          // Log the failed login attempt for auditing purposes (you can expand this to include IP address, user agent, etc.)
-          // This is if the email does not exist in the database, which could indicate a user trying to guess valid emails. Logging this can help you identify potential malicious activity.
-          // TODO: Implement proper logging of failed login attempts to the database for auditing and security monitoring
+          // Future audit hook: record AUTH_LOGIN_FAILED without storing password data.
+
+          await logAuditEvent(
+            toLogAuditEventInput({
+              action: "AUTH_LOGIN_FAILED",
+              actorUserId: null,
+              meta: {
+                endpoint: requestAuditContext.endpoint,
+                sourceIp: requestAuditContext.sourceIp ?? "unknown",
+                userAgent: requestAuditContext.userAgent,
+                attemptedIdentifier: credentials.email,
+                reason: "user_not_found",
+              },
+            }),
+          );
+
           return null;
         }
+
         const isValidPw = await bcrypt.compare(
           credentials.password,
           user.passwordHash,
         );
 
         if (!isValidPw) {
-          // Log the failed login attempt for auditing purposes (you can expand this to include IP address, user agent, etc.)
-          // This is if the password is incorrect for a valid email, which could indicate a brute force attack. Logging this can help you identify potential malicious activity.
-          // TODO: Implement proper logging of failed login attempts to the database for auditing and security monitoring
+          // Future audit hook: record AUTH_LOGIN_FAILED without storing password data.
+          await logAuditEvent(
+            toLogAuditEventInput({
+              action: "AUTH_LOGIN_FAILED",
+              actorUserId: null,
+              meta: {
+                endpoint: requestAuditContext.endpoint,
+                sourceIp: requestAuditContext.sourceIp ?? "unknown",
+                userAgent: requestAuditContext.userAgent,
+                attemptedIdentifier: credentials.email,
+                reason: "invalid_password",
+              },
+            }),
+          );
+
           return null;
         }
         return {

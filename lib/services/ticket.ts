@@ -11,6 +11,8 @@ import {
   type Actor,
 } from "@/lib/security/permissions";
 import { type TicketListItem, type TicketStats } from "@/lib/types/tickets";
+import { logAuditEvent, toLogAuditEventInput } from "./audit";
+import { RequestAuditContext } from "../request-audit";
 
 export type CreateTicketInput = {
   title: string;
@@ -46,22 +48,6 @@ export function ticketAccessFilter(
   };
 }
 
-/**
- * Working version for comparison.
- *
- * Why there is no explicit transaction here:
- * - this uses one Prisma `create` call with a nested `messages.create`
- * - Prisma treats that nested write as one atomic operation
- * - if the message insert fails, the ticket insert is rolled back automatically
- *
- * When you would use `prisma.$transaction()` instead:
- * - when the work is split across multiple separate Prisma queries
- * - for example: create ticket first, then create message second, then create audit event third
- *
- * Catch handling approach used here:
- * - rethrow known `ServiceError`s unchanged
- * - wrap unexpected database/runtime failures in one safe error for the caller
- */
 export async function createTicket(actor: Actor, input: CreateTicketInput) {
   try {
     const ticket = await prisma.ticket.create({
@@ -85,6 +71,7 @@ export async function createTicket(actor: Actor, input: CreateTicketInput) {
       },
     });
 
+    // Future audit hook: record TICKET_CREATED after the write succeeds.
     return ticket;
   } catch (err) {
     if (err instanceof ServiceError) {
@@ -100,10 +87,6 @@ export async function createTicket(actor: Actor, input: CreateTicketInput) {
   }
 }
 
-/**
- * Ticket listing with access control.
- *
- */
 export async function listTickets(actor: Actor): Promise<TicketListItem[]> {
   try {
     const whereClause = isStaff(actor) ? {} : { createdByUserId: actor.id };
@@ -135,23 +118,16 @@ export async function listTickets(actor: Actor): Promise<TicketListItem[]> {
   }
 }
 
-/**
- * TODO: Implement single-ticket lookup.
- *
- * Goal:
- * - load one ticket and its message thread
- * - return NOT_FOUND when a customer asks for another customer's ticket
- *
- * Suggested approach:
- * - call ticketAccessFilter(actor, ticketId)
- * - include messages ordered by createdAt asc
- * - throw ServiceError("NOT_FOUND", ...) when Prisma returns null
- */
-
-export async function getTicket(actor: Actor, ticketId: string) {
+export async function getTicket(
+  actor: Actor,
+  ticketId: string,
+  requestAuditContext?: RequestAuditContext,
+) {
   try {
     const ticket = await prisma.ticket.findFirst({
       where: ticketAccessFilter(actor, ticketId),
+      // For testing the audit log behavior, we intentionally bypass the ownership filter here and handle it manually in the code to be able to log forbidden access attempts for existing tickets.
+      // where: { id: ticketId },
       include: {
         createdBy: {
           select: {
@@ -173,12 +149,36 @@ export async function getTicket(actor: Actor, ticketId: string) {
       },
     });
 
-    // console.log("Ticket: ", ticket);
-
     if (!ticket) {
+      // Check if ticket exists at all without the ownership filter to determine if this is a "not found" vs "forbidden" case. We want to return 404 in both cases to avoid leaking information about the existence of the ticket.
+
+      const ticketExists = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        select: { id: true },
+      });
+
+      if (ticketExists) {
+        // record a FORBIDDEN_ACTION_ATTEMPT in the audit log for existing tickets to monitor potential unauthorized access attempts, but don't reveal the existence of the ticket in the response.
+
+        await logAuditEvent(
+          toLogAuditEventInput({
+            action: "FORBIDDEN_ACTION_ATTEMPT",
+            actorUserId: actor.id,
+            target: { type: "Ticket", id: ticketId },
+            meta: {
+              endpoint: requestAuditContext?.endpoint ?? "ticket.getTicket",
+              sourceIp: requestAuditContext?.sourceIp ?? "unknown",
+              userAgent: requestAuditContext?.userAgent,
+              reason: "ticket_read_denied_not_owner",
+            },
+          }),
+        );
+      }
+
       throw new ServiceError("NOT_FOUND", "Ticket not found.");
     }
 
+    // console.log("Pitäis tulla", ticket);
     return ticket;
   } catch (err) {
     if (err instanceof ServiceError) {
@@ -194,33 +194,41 @@ export async function getTicket(actor: Actor, ticketId: string) {
   }
 }
 
-/**
- * TODO: Implement reply posting.
- *
- * Goal:
- * - verify the actor may access the ticket
- * - create a new TicketMessage linked to that ticket
- *
- * Suggested approach:
- * - first load the ticket with ticketAccessFilter(actor, ticketId)
- * - decide whether CLOSED tickets should block replies
- * - insert the reply and consider whether the parent ticket should be touched to update timestamps
- */
 export async function postReply(
   actor: Actor,
   ticketId: string,
   input: PostReplyInput,
+  requestAuditContext?: RequestAuditContext,
 ) {
-  void actor;
-  void ticketId;
-  void input;
-
   try {
     const ticket = await prisma.ticket.findFirst({
       where: ticketAccessFilter(actor, ticketId),
     });
 
     if (!ticket) {
+      // Check if ticket exists at all without the ownership filter to determine if this is a "not found" vs "forbidden" case. We want to return 404 in both cases to avoid leaking information about the existence of the ticket.
+
+      const ticketExists = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        select: { id: true },
+      });
+
+      if (ticketExists) {
+        await logAuditEvent(
+          toLogAuditEventInput({
+            action: "FORBIDDEN_ACTION_ATTEMPT",
+            actorUserId: actor.id,
+            target: { type: "Ticket", id: ticketId },
+            meta: {
+              endpoint: requestAuditContext?.endpoint ?? "ticket.postReply",
+              sourceIp: requestAuditContext?.sourceIp ?? "unknown",
+              userAgent: requestAuditContext?.userAgent,
+              reason: "ticket_reply_denied_not_owner",
+            },
+          }),
+        );
+      }
+
       throw new ServiceError("NOT_FOUND", "Ticket not found.");
     }
 
@@ -247,9 +255,7 @@ export async function postReply(
       });
     });
 
-    // For debugging
-    // console.log("Reply created: ", reply);
-    // return reply;
+    // Future audit hook: record TICKET_REPLY_POSTED once the audit service is wired.
   } catch (err) {
     if (err instanceof ServiceError) {
       throw err;
@@ -261,32 +267,30 @@ export async function postReply(
       "Failed to post the reply. Please try again.",
     );
   }
-
-  // throw new ServiceError(
-  //   "NOT_IMPLEMENTED",
-  //   "postReply() still needs to be implemented.",
-  // );
 }
 
-/**
- * TODO: Implement ticket status changes.
- *
- * Goal:
- * - only staff can close or reopen tickets
- * - keep closedAt and closedByUserId consistent with the chosen status
- *
- * Suggested approach:
- * - keep the staff guard at the top of the function
- * - fetch the current ticket state before updating so you can compare old/new status
- * - when closing: set closedAt + closedByUserId
- * - when reopening: clear closedAt + closedByUserId
- */
 export async function changeTicketStatus(
   actor: Actor,
   ticketId: string,
   nextStatus: TicketStatus,
+  requestAuditContext?: RequestAuditContext,
 ) {
   if (!canChangeTicketStatus(actor)) {
+    await logAuditEvent(
+      toLogAuditEventInput({
+        action: "FORBIDDEN_ACTION_ATTEMPT",
+        actorUserId: actor.id,
+        target: { type: "Ticket", id: ticketId },
+        meta: {
+          endpoint:
+            requestAuditContext?.endpoint ?? "ticket.changeTicketStatus",
+          sourceIp: requestAuditContext?.sourceIp ?? "unknown",
+          userAgent: requestAuditContext?.userAgent,
+          reason: "staff_required_to_change_status",
+        },
+      }),
+    );
+
     throw new ServiceError(
       "FORBIDDEN",
       "You are not allowed to change ticket status.",
@@ -351,12 +355,6 @@ export async function getTicketStats(actor: Actor): Promise<TicketStats> {
       prisma.ticket.count({ where: { ...whereClause, status: "CLOSED" } }),
     ]);
     const stats = { totalTickets, openTickets, closedTickets };
-
-    // For testing error handling in the UI:
-    // throw new ServiceError(
-    //   "STATS_FETCH_FAILED",
-    //   "Failed to fetch ticket stats. Please try again.",
-    // );
 
     return stats;
   } catch (err) {

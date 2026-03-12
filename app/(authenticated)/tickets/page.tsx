@@ -31,9 +31,6 @@ export default async function TicketsPage() {
         </Button>
       </div>
 
-      {/* TODO: Only show createdBy column for staff members */}
-
-      {/* Ticket list table */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>

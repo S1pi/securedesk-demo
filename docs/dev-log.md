@@ -38,3 +38,11 @@
 - Split the authenticated nav into a server wrapper plus client component, passed real session data into it, and improved active-link matching for nested routes
 - Replaced hardcoded role unions with Prisma `Role` in auth-facing types and introduced shared auth types in `lib/types/auth.ts`
 - Added shared ticket contracts in `lib/types/tickets.ts` and documented the future cleanup path for using Prisma enum values as runtime status constants
+
+## 2026-03-12
+
+- Added audit service foundations, shared audit types, and request-audit context helpers, then documented the audit payload contract and current audit status
+- Wired `AUTH_LOGIN_FAILED` plus initial `FORBIDDEN_ACTION_ATTEMPT` logging for audit-log access, ticket ownership denials, and staff-only status changes
+- Replaced the audit log page mock rows with real `listAuditEvents()` data and tightened the table into a compact scan-friendly layout
+- Added a mock audit event detail route under `app/(authenticated)/admin/audit/[id]/page.tsx` with staff-only protection and structured metadata sections
+- Refined project docs to narrow the planned audit set, keeping `TICKET_CREATED` but treating reply posting as domain history rather than audit history

@@ -6,12 +6,11 @@ import ReplyForm from "./ReplyForm";
 import StatusChangeButton from "./StatusChangeButton";
 import { requireActor } from "@/lib/security/requireActor";
 import { getTicket } from "@/lib/services/ticket";
-import {
-  canChangeTicketStatus,
-  canReadTicket,
-} from "@/lib/security/permissions";
+import { canReadTicket } from "@/lib/security/permissions";
 import { notFound } from "next/navigation";
 import { ServiceError } from "@/lib/CustomErrors";
+import { headers } from "next/headers";
+import { createRequestAuditContext } from "@/lib/request-audit";
 
 type TicketDetailPageParams = {
   params: Promise<{ id: string }>;
@@ -25,11 +24,17 @@ export default async function TicketDetailPage({
   const { id: ticketId } = await params;
 
   let ticket;
-
   try {
-    ticket = await getTicket(actor, ticketId);
+    const headerStore = await headers();
+    const requestAuditContext = createRequestAuditContext(
+      `/tickets/${ticketId}`,
+      headerStore,
+    );
+    ticket = await getTicket(actor, ticketId, requestAuditContext);
   } catch (err) {
     if (err instanceof ServiceError && err.code === "NOT_FOUND") {
+      // Don't reveal the existence of the ticket if the user doesn't have access to it, to prevent information leakage. This also covers the case where the ticket doesn't exist at all.
+
       return notFound();
     }
 
@@ -88,18 +93,18 @@ export default async function TicketDetailPage({
               {ticket.status}
             </Badge>
 
-            {canChangeTicketStatus(actor) && (
+            {/* {canChangeTicketStatus(actor) && (
               <StatusChangeButton
                 ticketId={ticketId}
                 currentStatus={ticket.status}
               />
-            )}
+            )} */}
 
             {/* For testing purposes only to check authorization  */}
-            {/* <StatusChangeButton
+            <StatusChangeButton
               ticketId={ticketId}
               currentStatus={ticket.status}
-            /> */}
+            />
           </div>
         </div>
       </div>

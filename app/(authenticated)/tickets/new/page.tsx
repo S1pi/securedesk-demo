@@ -29,8 +29,6 @@ export default function NewTicketPage() {
     initialState,
   );
 
-  // TODO: React.FormEvent is deprecated, replace with correct handler type (Check if React.SubmitEvent or similar is available in your React version)
-
   useEffect(() => {
     if (state.success) {
       router.push("/tickets");
@@ -54,7 +52,6 @@ export default function NewTicketPage() {
             characters.
           </CardDescription>
         </CardHeader>
-        {/* TODO: Add form validation and error handling, ensure malicious input is prevented */}
         <CardContent>
           <form action={formAction} className="space-y-4" noValidate>
             <div className="space-y-2">
