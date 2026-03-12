@@ -125,7 +125,15 @@ export async function postReplyAction(
 
   try {
     const actor = await getActorAction();
-    await postReply(actor, ticketId, parsed.data);
+
+    const headersStore = await headers();
+
+    const requestAuditContext = createRequestAuditContext(
+      "ticket.postReplyAction",
+      headersStore,
+    );
+
+    await postReply(actor, ticketId, parsed.data, requestAuditContext);
 
     // Revalidate the ticket detail page to show the new reply.
     revalidatePath(`/tickets/${ticketId}`);

@@ -6,7 +6,10 @@ import ReplyForm from "./ReplyForm";
 import StatusChangeButton from "./StatusChangeButton";
 import { requireActor } from "@/lib/security/requireActor";
 import { getTicket } from "@/lib/services/ticket";
-import { canReadTicket } from "@/lib/security/permissions";
+import {
+  canChangeTicketStatus,
+  canReadTicket,
+} from "@/lib/security/permissions";
 import { notFound } from "next/navigation";
 import { ServiceError } from "@/lib/CustomErrors";
 import { headers } from "next/headers";
@@ -93,18 +96,18 @@ export default async function TicketDetailPage({
               {ticket.status}
             </Badge>
 
-            {/* {canChangeTicketStatus(actor) && (
+            {canChangeTicketStatus(actor) && (
               <StatusChangeButton
                 ticketId={ticketId}
                 currentStatus={ticket.status}
               />
-            )} */}
+            )}
 
             {/* For testing purposes only to check authorization  */}
-            <StatusChangeButton
+            {/* <StatusChangeButton
               ticketId={ticketId}
               currentStatus={ticket.status}
-            />
+            /> */}
           </div>
         </div>
       </div>
