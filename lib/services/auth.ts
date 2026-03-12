@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 import { ServiceError } from "../CustomErrors";
 import { Prisma, type Role } from "@/app/generated/prisma/client";
 
-const BCRYPT_ROUNDS = 12;
+const BCRYPT_ROUNDS = parseInt(process.env.SALT_ROUNDS as string) || 12;
 
 type RegisterInput = {
   email: string;
