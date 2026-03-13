@@ -46,3 +46,11 @@
 - Replaced the audit log page mock rows with real `listAuditEvents()` data and tightened the table into a compact scan-friendly layout
 - Added a mock audit event detail route under `app/(authenticated)/admin/audit/[id]/page.tsx` with staff-only protection and structured metadata sections
 - Refined project docs to narrow the planned audit set, keeping `TICKET_CREATED` but treating reply posting as domain history rather than audit history
+
+## 2026-03-13
+
+- Replaced the audit event detail mockup with a dedicated single-event read path via `getAuditEventById()` and aligned the audit pages with the real read model
+- Implemented in-memory fixed-window rate limiting in `lib/security/rate-limit.ts` and boundary-triggered `RATE_LIMIT_TRIGGERED` audit logging in `lib/security/rate-limit-boundary.ts`
+- Wired rate limits for login, registration, ticket creation, ticket replies, and ticket status changes, including dual login buckets for broad IP throttling plus targeted IP+identifier protection
+- Added `RateLimitExceededError` handling so rate-limited Server Actions and Auth.js sign-in can surface safe user-facing messages
+- Updated the project status and security documentation to reflect the implemented audit detail flow and current rate-limiting architecture
