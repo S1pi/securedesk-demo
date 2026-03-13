@@ -57,25 +57,9 @@ export async function createTicketAction(
   _prev: TicketActionResult,
   formData: FormData,
 ): Promise<TicketActionResult> {
-  const parsed = CreateTicketSchema.safeParse({
-    title: formData.get("title"),
-    message: formData.get("message"),
-  });
-
-  if (!parsed.success) {
-    if (parsed.error.issues.length > 1) {
-      return {
-        success: false,
-        error: parsed.error.issues.map((issue) => issue.message).join(" "),
-      };
-    } else {
-      return { success: false, error: parsed.error.issues[0].message };
-    }
-  }
-
   try {
-    const headersStore = await headers();
     const actor = await getActorAction();
+    const headersStore = await headers();
     const requestAuditContext = createRequestAuditContext(
       "ticket.createTicketAction",
       headersStore,
@@ -90,6 +74,21 @@ export async function createTicketAction(
       userAgent: requestAuditContext.userAgent,
       actorUserId: actor.id,
     });
+
+    const parsed = CreateTicketSchema.safeParse({
+      title: formData.get("title"),
+      message: formData.get("message"),
+    });
+    if (!parsed.success) {
+      if (parsed.error.issues.length > 1) {
+        return {
+          success: false,
+          error: parsed.error.issues.map((issue) => issue.message).join(" "),
+        };
+      } else {
+        return { success: false, error: parsed.error.issues[0].message };
+      }
+    }
 
     const ticket = await createTicket(actor, parsed.data);
 
@@ -132,17 +131,8 @@ export async function postReplyAction(
   _prev: TicketActionResult,
   formData: FormData,
 ): Promise<TicketActionResult> {
-  const parsed = PostReplySchema.safeParse({
-    content: formData.get("content"),
-  });
-
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
-  }
-
   try {
     const actor = await getActorAction();
-
     const headersStore = await headers();
 
     const requestAuditContext = createRequestAuditContext(
@@ -158,6 +148,14 @@ export async function postReplyAction(
       userAgent: requestAuditContext.userAgent,
       actorUserId: actor.id,
     });
+
+    const parsed = PostReplySchema.safeParse({
+      content: formData.get("content"),
+    });
+
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
 
     await postReply(actor, ticketId, parsed.data, requestAuditContext);
 
@@ -181,12 +179,6 @@ export async function changeTicketStatusAction(
   _prev: TicketActionResult,
   _formData: FormData,
 ): Promise<TicketActionResult> {
-  const parsed = ChangeStatusSchema.safeParse({ status: nextStatus });
-
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
-  }
-
   try {
     const actor = await getActorAction();
 
@@ -206,13 +198,21 @@ export async function changeTicketStatusAction(
       actorUserId: actor.id,
     });
 
+    const parsed = ChangeStatusSchema.safeParse({ status: nextStatus });
+
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
     await changeTicketStatus(
       actor,
       ticketId,
       parsed.data.status,
       requestAuditContext,
     );
+
     revalidatePath(`/tickets/${ticketId}`);
+
     return { success: true, ticketId, status: parsed.data.status };
   } catch (err) {
     if (err instanceof ServiceError || err instanceof RateLimitExceededError) {

@@ -8,6 +8,7 @@ import { logAuditEvent, toLogAuditEventInput } from "./services/audit";
 import { createRequestAuditContext } from "./request-audit";
 import { checkRateLimit } from "./security/rate-limit-boundary";
 import { RateLimitExceededError } from "./CustomErrors";
+import { LoginSchema } from "./validation/schemas";
 
 declare module "next-auth" {
   interface Session {
@@ -91,6 +92,15 @@ export const authOptions: NextAuthOptions = {
             sourceIp: requestAuditContext.sourceIp,
             userAgent: requestAuditContext.userAgent,
           });
+
+          const parsed = LoginSchema.safeParse({
+            email: credentials.email,
+            password: credentials.password,
+          });
+
+          if (!parsed.success) {
+            return null;
+          }
         } catch (err) {
           if (err instanceof RateLimitExceededError) {
             throw err;
@@ -99,7 +109,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: normalizedEmail },
         });
 
         if (!user) {

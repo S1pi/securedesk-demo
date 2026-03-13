@@ -16,16 +16,6 @@ export async function registerAction(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const parsed = RegisterSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-    role: formData.get("role") ?? undefined,
-  });
-
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message };
-  }
-
   try {
     const headerStore = await headers();
     const requestAuditContext = createRequestAuditContext(
@@ -41,6 +31,17 @@ export async function registerAction(
       sourceIp: requestAuditContext.sourceIp,
       userAgent: requestAuditContext.userAgent,
     });
+
+    const parsed = RegisterSchema.safeParse({
+      email: formData.get("email"),
+      password: formData.get("password"),
+      role: formData.get("role") ?? undefined,
+    });
+
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
     await registerUser(parsed.data);
     return { success: true };
   } catch (err) {
