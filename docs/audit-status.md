@@ -16,6 +16,7 @@ This file tracks the audit feature specifically without changing the broader pro
 - Shared request audit context is intentionally small: `endpoint`, `sourceIp`, and `userAgent`.
 - Request context must be gathered and normalized at request boundaries, not inside `lib/services/audit.ts`.
 - Request audit context stays separate from the persisted audit event contract.
+- Demo rate limiting uses in-memory fixed-window buckets; a distributed store is deferred until multi-instance deployment is needed.
 
 ## Implemented
 
@@ -24,21 +25,20 @@ This file tracks the audit feature specifically without changing the broader pro
 - `RequestAuditContext` and request normalization helpers exist in `lib/request-audit.ts`.
 - Event-by-event payload contract is documented in `docs/audit-payload-contract.md`.
 - `logAuditEvent()` exists as a non-blocking write helper.
-- `listAuditEvents()` exists as a staff-only read helper.
+- `listAuditEvents()` and `getAuditEventById()` exist as staff-only read helpers.
 - The audit log page has a staff-only server-side guard and reads real data from `listAuditEvents()`.
 - `AUTH_LOGIN_FAILED` is emitted from `lib/auth.ts` with request-derived audit context.
 - `FORBIDDEN_ACTION_ATTEMPT` is emitted for audit-log access denials, staff-only ticket status-change denials, and existing-ticket ownership denials while still returning outward `NOT_FOUND` for hidden customer ownership failures.
-- A dedicated audit event detail route exists as a mockup page and is linked from the audit log table.
+- The audit event detail route reads a single event via a dedicated query path.
+- Rate limiting is wired through `lib/security/rate-limit-boundary.ts` and emits `RATE_LIMIT_TRIGGERED` for login, registration, ticket creation, ticket replies, and ticket status changes.
 
 ## Missing
 
 - `TICKET_CREATED` and `TICKET_STATUS_CHANGED` are not wired yet.
-- Rate limiting and rate-limit audit emission are not implemented.
-- The audit event detail route still reuses list data instead of a dedicated single-event query.
+- Focused automated tests for audit and rate-limit behavior are not implemented yet.
 
 ## Next
 
-1. Replace the audit event detail mockup with a dedicated single-event read path.
-2. Wire `TICKET_CREATED` and `TICKET_STATUS_CHANGED` in the service layer after successful writes.
-3. Reuse the request-audit helper pattern for future rate-limit boundaries.
-4. Implement rate limiting and emit `RATE_LIMIT_TRIGGERED` from that boundary.
+1. Wire `TICKET_CREATED` and `TICKET_STATUS_CHANGED` in the service layer after successful writes.
+2. Add focused tests for audit reads, forbidden attempts, and rate-limit emission.
+3. Optionally harden the in-memory limiter by capping login identifier key length and pruning stale buckets.

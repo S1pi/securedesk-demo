@@ -42,6 +42,7 @@ Not planned for audit emission:
 - Gather request-derived audit data only at request boundaries where the request is available.
 - Keep request-derived audit data separate from persisted event payload contracts.
 - Prefer auditing suspicious activity, denied actions, and meaningful state transitions over routine activity already recorded in domain tables.
+- Demo rate limiting uses in-memory fixed-window buckets; a distributed store is deferred until multi-instance deployment is needed.
 
 ## Request Audit Context
 
@@ -77,7 +78,8 @@ Use these keys consistently when relevant:
 - `ticketId`: related ticket id when the audited target is not itself the ticket row
 - `fromStatus`: previous ticket status for status changes
 - `toStatus`: next ticket status for status changes
-- `limiterScope`: logical rate-limit bucket such as `login`, `ticket-create`, or `ticket-reply`
+- `limiterScope`: logical rate-limit bucket
+- Current implemented scopes: `login_ip`, `login_ip_identifier`, `register_ip`, `ticket_creation`, `ticket_reply`, `ticket_status_change`
 - `limiterKey`: the concrete rate-limit key that tripped the limiter
 
 ## Status
@@ -99,42 +101,37 @@ Use these keys consistently when relevant:
 
 - `AuditEvent` table exists with `actorUserId`, `action`, `targetType`, `targetId`, `meta`, and `createdAt`.
 - `lib/services/audit.ts` contains a non-blocking `logAuditEvent()` helper.
-- `lib/services/audit.ts` contains a staff-guarded `listAuditEvents()` helper.
+- `lib/services/audit.ts` contains staff-guarded `listAuditEvents()` and `getAuditEventById()` helpers.
 - `lib/request-audit.ts` normalizes request-derived audit context for auth-boundary use.
 - The audit log page route has a server-side staff check and reads real rows from `listAuditEvents()`.
 - Shared generic audit types already exist in `lib/types/audit.ts`.
 - `AUTH_LOGIN_FAILED` is wired in `lib/auth.ts` for both unknown-user and invalid-password cases.
-- `FORBIDDEN_ACTION_ATTEMPT` is partially wired for audit-log access denials, ticket ownership denials on existing tickets, and staff-only status-change denials.
-- A linked audit event detail mockup exists under `app/(authenticated)/admin/audit/[id]/page.tsx`.
+- `FORBIDDEN_ACTION_ATTEMPT` is wired for audit-log access denials, ticket ownership denials on existing tickets, and staff-only status-change denials.
+- The audit event detail route now loads a single event by id instead of scanning the list view model.
+- Rate limiting is implemented in `lib/security/rate-limit.ts` and `lib/security/rate-limit-boundary.ts`, and `RATE_LIMIT_TRIGGERED` is emitted for login, registration, ticket creation, ticket replies, and ticket status changes.
 
 ### Still Missing
 
 - `TICKET_CREATED` and `TICKET_STATUS_CHANGED` are not yet logging their events.
-- Rate limiting is not implemented yet, so `RATE_LIMIT_TRIGGERED` is not emitted.
-- The audit event detail route still reuses list data instead of a dedicated single-event query.
+- Focused automated tests for audit and rate-limit behavior are not implemented yet.
 
 ### What Should Be Done Next
 
-1. Replace the audit event detail mockup with a dedicated single-event read path.
-2. Wire the remaining planned ticket business events from the ticket service after successful writes.
-3. Implement rate limiting and emit `RATE_LIMIT_TRIGGERED` using the same meta vocabulary defined here.
+1. Wire the remaining planned ticket business events from the ticket service after successful writes.
+2. Add focused tests for audit reads, forbidden attempts, and rate-limit emission.
+3. Optionally harden the in-memory limiter by capping login identifier key length and pruning stale buckets.
 
 ## Event Emission Map
-
-This section maps each planned audit event to the place in this repository where it should be emitted.
 
 ### AUTH_LOGIN_FAILED
 
 - Emit from: auth boundary in `lib/auth.ts`
 - Needs request audit context: yes
-- Top-level fields:
-  - required: `action`
-  - optional: `actorUserId`, `targetType`, `targetId`, `meta`
 - Meta fields:
   - required: `endpoint`, `attemptedIdentifier`, `reason`, `sourceIp`
   - optional: `userAgent`
 - `actorUserId`: expected to be `null`
-- Implementation notes: this is now wired in `lib/auth.ts`; keep using boundary-gathered request context, emit immediately on unknown-user and invalid-password paths, and do not log password material
+- Implementation notes: wired in `lib/auth.ts`; emit immediately on unknown-user and invalid-password paths; do not log password material
 
 ### TICKET_CREATED
 
@@ -143,11 +140,7 @@ This section maps each planned audit event to the place in this repository where
 - Top-level fields:
   - required: `actorUserId`, `action`, `targetType`, `targetId`
   - optional: `meta`
-- Meta fields:
-  - required: none
-  - optional: `endpoint`
-- `actorUserId`: required
-- Implementation notes: this is a normal authenticated business event; use `targetType = "Ticket"` and `targetId = ticket.id`
+- Implementation notes: planned; use `targetType = "Ticket"` and `targetId = ticket.id`
 
 ### TICKET_STATUS_CHANGED
 
@@ -159,91 +152,27 @@ This section maps each planned audit event to the place in this repository where
 - Meta fields:
   - required: `fromStatus`, `toStatus`
   - optional: `endpoint`
-- `actorUserId`: required
-- Implementation notes: capture the previous status before updating so the audit event can store an accurate transition
+- Implementation notes: planned; capture the previous status before updating so `fromStatus` is accurate
 
 ### FORBIDDEN_ACTION_ATTEMPT
 
 - Emit from: the cleanest point that has both the authorization failure reason and normalized request audit context
 - Needs request audit context: yes
-- Top-level fields:
-  - required: `action`
-  - optional: `actorUserId`, `targetType`, `targetId`, `meta`
 - Meta fields:
   - required: `endpoint`, `reason`, `sourceIp`
   - optional: `userAgent`, `ticketId`
 - `actorUserId`: optional
-- Implementation notes: this is partially wired now for audit-log access, ticket ownership denials, and staff-only status changes; if the denial occurs for an authenticated user, include `actorUserId`; for hidden ownership violations, log the forbidden attempt internally but still return outward `NOT_FOUND` so resource existence is not leaked
+- Implementation notes: wired for audit-log access denials, ticket ownership denials, and staff-only status changes; hidden ownership violations still return outward `NOT_FOUND`
 
 ### RATE_LIMIT_TRIGGERED
 
-- Emit from: future rate-limit boundary
+- Emit from: `lib/security/rate-limit-boundary.ts`
 - Needs request audit context: yes
-- Top-level fields:
-  - required: `action`
-  - optional: `actorUserId`, `targetType`, `targetId`, `meta`
 - Meta fields:
   - required: `endpoint`, `limiterScope`, `limiterKey`, `reason`, `sourceIp`
   - optional: `userAgent`
 - `actorUserId`: optional
-- Implementation notes: emit where the limiter rejects the request; only include `actorUserId` when the limiter is user-bound and the caller is authenticated
-
-## Event Contracts
-
-### AUTH_LOGIN_FAILED
-
-- Purpose/category: Authentication abuse detection
-- Required top-level fields: `action`, `createdAt` (database-managed)
-- Optional top-level fields: `targetType`, `targetId`, `meta`
-- Required meta fields: `endpoint`, `attemptedIdentifier`, `reason`, `sourceIp`
-- Optional meta fields: `userAgent`
-- `actorUserId`: expected to be `null`
-- Store `sourceIp`: yes
-- Implementation guidance: emit once per failed login attempt in the credentials flow; never log the submitted password; keep `targetType` and `targetId` empty unless you later decide to model a login subject explicitly
-
-### TICKET_CREATED
-
-- Purpose/category: Authenticated business activity / accountability
-- Required top-level fields: `actorUserId`, `action`, `targetType`, `targetId`, `createdAt` (database-managed)
-- Optional top-level fields: `meta`
-- Required meta fields: none
-- Optional meta fields: `endpoint`
-- `actorUserId`: required
-- Store `sourceIp`: no
-- Implementation guidance: emit after the ticket and initial message are created successfully; use `targetType = "Ticket"` and `targetId = ticket.id`
-
-### TICKET_STATUS_CHANGED
-
-- Purpose/category: Authenticated business activity / accountability
-- Required top-level fields: `actorUserId`, `action`, `targetType`, `targetId`, `createdAt` (database-managed)
-- Optional top-level fields: `meta`
-- Required meta fields: `fromStatus`, `toStatus`
-- Optional meta fields: `endpoint`
-- `actorUserId`: required
-- Store `sourceIp`: no
-- Implementation guidance: emit only when the status actually changes; use `targetType = "Ticket"` and `targetId = ticket.id`; capture the previous status before updating so `fromStatus` is accurate
-
-### FORBIDDEN_ACTION_ATTEMPT
-
-- Purpose/category: Authorization abuse detection
-- Required top-level fields: `action`, `createdAt` (database-managed)
-- Optional top-level fields: `actorUserId`, `targetType`, `targetId`, `meta`
-- Required meta fields: `endpoint`, `reason`, `sourceIp`
-- Optional meta fields: `userAgent`, `ticketId`
-- `actorUserId`: optional
-- Store `sourceIp`: yes
-- Implementation guidance: emit when a request reaches the service boundary but fails an authorization rule; if the requester is authenticated, include `actorUserId`; if the denial concerns a ticket-related action, include either `targetId` directly or `ticketId` in `meta`; when ownership must stay hidden from customers, still emit this audit event internally but return outward `NOT_FOUND`
-
-### RATE_LIMIT_TRIGGERED
-
-- Purpose/category: Abuse detection / throttling visibility
-- Required top-level fields: `action`, `createdAt` (database-managed)
-- Optional top-level fields: `actorUserId`, `targetType`, `targetId`, `meta`
-- Required meta fields: `endpoint`, `limiterScope`, `limiterKey`, `reason`, `sourceIp`
-- Optional meta fields: `userAgent`
-- `actorUserId`: optional
-- Store `sourceIp`: yes
-- Implementation guidance: emit from the rate-limit layer when a request is rejected; include `actorUserId` only when the limiter is user-bound and the caller is authenticated; do not force `targetType` unless the limiter is specific to a single resource
+- Implementation notes: wired for login, registration, ticket creation, ticket replies, and ticket status changes; emit when the limiter rejects the request; the current implementation emits once per blocked bucket window to avoid flooding the audit log
 
 ## Recommendations For Future Events
 
