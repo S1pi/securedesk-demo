@@ -21,7 +21,9 @@
 - Staff voi nähdä kaikki pyynnöt, vastata niihin, muuttaa tilaa ja tarkastella audit-lokia.
 - Domain on tarkoituksella yksinkertainen, jotta fokus pysyy tietoturvassa.
 
-**Katsotaan nopeasti miltä sovellus näyttää käytännössä.** // siirrä tää omiin noteihin.
+**Katsotaan nopeasti miltä sovellus näyttää käytännössä.**
+
+---
 
 ## 3. Kerroksellinen tietoturva
 
@@ -43,6 +45,8 @@ Ajatus on **defense in depth**:
 - jos yksi kerros heikkenee tai pettää, muut kerrokset suojaavat edelleen.
 
 Monet näistä kerroksista näkyvät myös sovelluksen käytössä demon aikana.
+
+---
 
 ## 4. Keskeiset tietoturvapää­tökset
 
@@ -78,6 +82,8 @@ Näitä päätöksiä nähdään myös käytännössä demon aikana.
 - Next.js server actions jotta olisi, pienempi julkinen hyökkäys pinta
 - server actionsit integroituu hyvin muihin kerroksiin, kuten auditointiin ja rate-limittiin
 
+---
+
 ## 5. Kaytetyt teknologiat
 
 Teknologiat valittiin tukemaan modernia server-side arkkitehtuuria ja turvallista toteutusta.
@@ -87,6 +93,8 @@ Teknologiat valittiin tukemaan modernia server-side arkkitehtuuria ja turvallist
 - Auth.js / NextAuth
 - Zod-validointi
 - moderni server-side arkkitehtuuri
+
+---
 
 ## 6. Mita opin projektin aikana
 
@@ -101,6 +109,8 @@ Projektin aikana opin:
 - AI-työkalujen ja agenttien tehokkaamman hyödyntämisen paremmilla ohjeilla ja dokumentaatiolla
 
 Projekti oli siis sekä tietoturva-arkkitehtuurin demo että oppimisprojekti.
+
+---
 
 ## 7. Tietoturvan näkyminen käytännössä (demo)
 
@@ -119,8 +129,12 @@ Esimerkkejä audit-lokista:
 - `FORBIDDEN_ACTION_ATTEMPT`
 - `RATE_LIMIT_TRIGGERED`
 
+---
+
 ## Yhteenveto
 
 - Sovellus on tarkoituksella yksinkertainen.
 - Tärkeintä ei ole sovelluksen monimutkaisuus.
 - Tärkeintä on se, miten useita tietoturvakerroksia voidaan rakentaa moderniin web-sovellukseen.
+
+---
