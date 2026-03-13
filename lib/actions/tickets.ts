@@ -1,7 +1,7 @@
 "use server";
 
 import { type TicketStatus } from "@/app/generated/prisma/client";
-import { ServiceError } from "@/lib/CustomErrors";
+import { RateLimitExceededError, ServiceError } from "@/lib/CustomErrors";
 import { auth } from "@/lib/auth";
 import {
   changeTicketStatus,
@@ -22,6 +22,7 @@ import { type Actor } from "../security/permissions";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { createRequestAuditContext } from "../request-audit";
+import { checkRateLimit } from "../security/rate-limit-boundary";
 
 /**
  * Convert the authenticated session into the minimal actor shape used by the
@@ -73,7 +74,23 @@ export async function createTicketAction(
   }
 
   try {
+    const headersStore = await headers();
     const actor = await getActorAction();
+    const requestAuditContext = createRequestAuditContext(
+      "ticket.createTicketAction",
+      headersStore,
+    );
+
+    // Rate limit check for ticket creation by user ID
+    await checkRateLimit({
+      scope: "ticket_creation",
+      limiterKey: actor.id,
+      endpoint: requestAuditContext.endpoint,
+      sourceIp: requestAuditContext.sourceIp,
+      userAgent: requestAuditContext.userAgent,
+      actorUserId: actor.id,
+    });
+
     const ticket = await createTicket(actor, parsed.data);
 
     return {
@@ -81,7 +98,7 @@ export async function createTicketAction(
       ticketId: ticket.id,
     };
   } catch (err) {
-    if (err instanceof ServiceError) {
+    if (err instanceof ServiceError || err instanceof RateLimitExceededError) {
       return { success: false, error: err.message };
     }
 
@@ -133,6 +150,15 @@ export async function postReplyAction(
       headersStore,
     );
 
+    await checkRateLimit({
+      scope: "ticket_reply",
+      limiterKey: actor.id,
+      endpoint: requestAuditContext.endpoint,
+      sourceIp: requestAuditContext.sourceIp,
+      userAgent: requestAuditContext.userAgent,
+      actorUserId: actor.id,
+    });
+
     await postReply(actor, ticketId, parsed.data, requestAuditContext);
 
     // Revalidate the ticket detail page to show the new reply.
@@ -140,7 +166,7 @@ export async function postReplyAction(
 
     return { success: true, ticketId };
   } catch (err) {
-    if (err instanceof ServiceError) {
+    if (err instanceof ServiceError || err instanceof RateLimitExceededError) {
       return { success: false, error: err.message };
     }
 
@@ -171,6 +197,15 @@ export async function changeTicketStatusAction(
       headersStore,
     );
 
+    await checkRateLimit({
+      scope: "ticket_status_change",
+      limiterKey: actor.id,
+      endpoint: requestAuditContext.endpoint,
+      sourceIp: requestAuditContext.sourceIp,
+      userAgent: requestAuditContext.userAgent,
+      actorUserId: actor.id,
+    });
+
     await changeTicketStatus(
       actor,
       ticketId,
@@ -180,7 +215,7 @@ export async function changeTicketStatusAction(
     revalidatePath(`/tickets/${ticketId}`);
     return { success: true, ticketId, status: parsed.data.status };
   } catch (err) {
-    if (err instanceof ServiceError) {
+    if (err instanceof ServiceError || err instanceof RateLimitExceededError) {
       return { success: false, error: err.message };
     }
 

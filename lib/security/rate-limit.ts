@@ -28,7 +28,7 @@ type StoredBucket = {
 export const RATE_LIMITS: Record<RateLimitScope, RateLimitConfig> = {
   login_ip: {
     scope: "login_ip",
-    maxAttempts: 20,
+    maxAttempts: 10, // 10 for demo purposes, consider more attempts for production
     windowMs: 10 * 60 * 1000, // 10 minutes
   },
   login_ip_identifier: {
@@ -38,22 +38,22 @@ export const RATE_LIMITS: Record<RateLimitScope, RateLimitConfig> = {
   },
   register_ip: {
     scope: "register_ip",
-    maxAttempts: 5,
+    maxAttempts: 2, // 2 for demo purposes, consider more attempts for production example 5
     windowMs: 60 * 60 * 1000, // 1 hour
   },
   ticket_creation: {
     scope: "ticket_creation",
-    maxAttempts: 5,
+    maxAttempts: 2, // 2 for demo purposes, consider more attempts for production example 5
     windowMs: 10 * 60 * 1000, // 10 minutes
   },
   ticket_reply: {
     scope: "ticket_reply",
-    maxAttempts: 10,
+    maxAttempts: 5, // 5 for demo purposes, consider more attempts for production example 20
     windowMs: 5 * 60 * 1000, // 5 minutes
   },
   ticket_status_change: {
     scope: "ticket_status_change",
-    maxAttempts: 20,
+    maxAttempts: 10, // 10 for demo purposes, consider more attempts for production
     windowMs: 5 * 60 * 1000, // 5 minutes
   },
 };
